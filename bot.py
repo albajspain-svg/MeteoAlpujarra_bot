@@ -1,157 +1,119 @@
-import os
-import json
+import asyncio
 import logging
-import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import httpx
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-TOKEN = os.getenv("TOKEN")
-DB_FILE = "users.json"
-TEST_MODE = True
+# ---------------- Logging ----------------
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-chat_info = {}
+# ---------------- Configuración ----------------
+TOKEN = "TU_BOT_TOKEN_AQUI"
+CHAT_ID = "TU_CHAT_ID_AQUI"
+WEATHER_URL = "https://wttr.in/?format=j1"
 
-logging.basicConfig(level=logging.INFO)
+# ---------------- Scheduler ----------------
+scheduler = AsyncIOScheduler()
 
-TOWNS = ["Órgiva","Lanjarón","Pampaneira","Bubión","Capileira","Trevélez"]
-
-TEXTS = {
-    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","error":"⚠️ Error clima"},
-    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language","select":"Choose your village:","ok":"✅ Activated for {}","error":"⚠️ Weather error"},
-    "fr": {"welcome":"🌦️ MeteoAlpujarra\nChoisissez la langue","select":"Choisissez votre village:","ok":"✅ Activé pour {}","error":"⚠️ Erreur météo"},
-    "de": {"welcome":"🌦️ MeteoAlpujarra\nSprache wählen","select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","error":"⚠️ Wetterfehler"},
-    "nl": {"welcome":"🌦️ MeteoAlpujarra\nKies taal","select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","error":"⚠️ Weer fout"},
-}
-
-def t(cid, key):
-    lang = chat_info.get(cid, {}).get("lang", "es")
-    return TEXTS.get(lang, TEXTS["es"]).get(key, key)
-
-def get_weather(town):
+# ---------------- Función de parseo de clima ----------------
+def parse_weather(data):
+    """
+    Devuelve el mensaje de clima en 5 idiomas.
+    Si no existe current_condition, toma la última hora con datos.
+    Incluye mañana y tarde, UV y probabilidad de lluvia.
+    """
     try:
-        r = requests.get(f"https://wttr.in/{town}?format=j1", timeout=10)
-        return r.json()
-    except:
-        return None
+        # Tomar current_condition o última hora
+        if "current_condition" in data and len(data["current_condition"]) > 0:
+            curr = data["current_condition"][0]
+        else:
+            # Buscar última hora con datos
+            weather_today = data.get("weather", [])
+            if weather_today and len(weather_today[0].get("hourly", [])) > 0:
+                curr = weather_today[0]["hourly"][-1]
+            else:
+                return "❌ No se pudo obtener información del clima."
 
-def parse_weather(data, cid):
-    try:
-        if not data or "current_condition" not in data:
-            return t(cid, "error")
+        temp_c = curr.get("temp_C", curr.get("tempC", "N/A"))
+        uv = curr.get("uvIndex", "N/A")
+        rain = curr.get("chanceofrain", "N/A")
 
-        curr = data["current_condition"][0]
-        today = data.get("weather", [{}])[0]
+        # Predicción mañana y tarde
+        forecast_msg = ""
+        weather_today = data.get("weather", [])
+        if weather_today:
+            hourly = weather_today[0].get("hourly", [])
+            if len(hourly) >= 2:
+                forecast_msg = (
+                    f"\n🌅 Mañana: {hourly[0].get('tempC','N/A')}°C, "
+                    f"{hourly[0].get('chanceofrain','N/A')}% lluvia"
+                    f"\n🌇 Tarde: {hourly[1].get('tempC','N/A')}°C, "
+                    f"{hourly[1].get('chanceofrain','N/A')}% lluvia"
+                )
 
-        temp = curr.get("temp_C", "--")
-        uv = curr.get("uvIndex", "0")
-
-        hourly = today.get("hourly", [])
-        if len(hourly) < 6:
-            return t(cid, "error")
-
-        rain_m = hourly[2].get("chanceofrain", "0")
-        rain_a = hourly[5].get("chanceofrain", "0")
-
-        msg = f"🌡️ {temp}°C\n"
-        msg += f"☀️ {rain_m}% 🌧️\n"
-        msg += f"🌇 {rain_a}% 🌧️\n"
-        msg += f"🧴 UV: {uv}"
-
-        if TEST_MODE:
-            msg = "🧪 " + msg
-
-        return msg
-
-    except:
-        return t(cid, "error")
-
-async def send_weather(context: ContextTypes.DEFAULT_TYPE):
-    cid = context.job.data["chat_id"]
-    if cid not in chat_info:
-        return
-
-    town = chat_info[cid]["nombre"]
-    data = get_weather(town)
-    text = parse_weather(data, cid)
-
-    await context.bot.send_message(chat_id=cid, text=text)
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(TEXTS["es"]["welcome"], reply_markup=kb_lang())
-
-def kb_lang():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇪🇸", callback_data="lang_es"), InlineKeyboardButton("🇬🇧", callback_data="lang_en")],
-        [InlineKeyboardButton("🇫🇷", callback_data="lang_fr"), InlineKeyboardButton("🇩🇪", callback_data="lang_de"), InlineKeyboardButton("🇳🇱", callback_data="lang_nl")]
-    ])
-
-def kb_towns():
-    return InlineKeyboardMarkup([[InlineKeyboardButton(t, callback_data=f"town_{t}") for t in TOWNS]])
-
-def remove_jobs(app, cid):
-    for job in app.job_queue.jobs():
-        if str(cid) in job.name:
-            job.schedule_removal()
-
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    d = q.data
-    cid = q.from_user.id
-
-    if d.startswith("lang_"):
-        chat_info.setdefault(cid, {})["lang"] = d[5:]
-        save_users()
-        await q.edit_message_text(t(cid,"select"), reply_markup=kb_towns())
-
-    elif d.startswith("town_"):
-        town = d[5:]
-        chat_info.setdefault(cid, {})["nombre"] = town
-        save_users()
-
-        remove_jobs(context.application, cid)
-
-        context.application.job_queue.run_repeating(
-            send_weather, 300, first=3,
-            name=f"w_{cid}",
-            data={"chat_id": cid}
+        # Mensaje en 5 idiomas
+        message = (
+            f"🌤️ Clima actual:\n"
+            f"🇪🇸 ESP: Temp {temp_c}°C, UV {uv}, Lluvia {rain}%{forecast_msg}\n"
+            f"🇬🇧 EN: Temp {temp_c}°C, UV {uv}, Rain {rain}%{forecast_msg}\n"
+            f"🇫🇷 FR: Temp {temp_c}°C, UV {uv}, Pluie {rain}%{forecast_msg}\n"
+            f"🇩🇪 DE: Temp {temp_c}°C, UV {uv}, Regen {rain}%{forecast_msg}\n"
+            f"🇳🇱 NL: Temp {temp_c}°C, UV {uv}, Regen {rain}%{forecast_msg}"
         )
+        return message
+    except Exception as e:
+        logging.error(f"Error parseando clima: {e}")
+        return "❌ Error procesando la información del clima."
 
-        await q.edit_message_text(t(cid,"ok").format(town))
-
-def load_users():
-    global chat_info
+# ---------------- Función de envío de clima ----------------
+async def send_weather(context: ContextTypes.DEFAULT_TYPE):
+    """Obtiene el clima y lo envía al chat."""
     try:
-        with open(DB_FILE,"r") as f:
-            chat_info = {int(k): v for k,v in json.load(f).items()}
-    except:
-        chat_info = {}
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(WEATHER_URL)
+            data = resp.json()
+        text = parse_weather(data)
+        await context.bot.send_message(chat_id=CHAT_ID, text=text)
+    except Exception as e:
+        logging.error(f"Error enviando clima: {e}")
+        await context.bot.send_message(chat_id=CHAT_ID, text="❌ Error obteniendo clima.")
 
-def save_users():
-    with open(DB_FILE,"w") as f:
-        json.dump({str(k):v for k,v in chat_info.items()}, f)
+# ---------------- Comandos ----------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 Bot iniciado.\n"
+        "Envía /clima para obtener el clima actual.\n"
+        "Clima automático cada 5 minutos activado."
+    )
 
-async def on_startup(app):
-    # 🔥 CIERRA TODO en Telegram (clave real)
-    await app.bot.delete_webhook(drop_pending_updates=True)
+async def weather_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando para enviar clima manualmente."""
+    await send_weather(context)
+
+# ---------------- Función principal ----------------
+async def main():
+    # Limpiar sesiones antiguas
     print("🔥 Sesiones antiguas limpiadas")
 
-def main():
-    if not TOKEN:
-        print("No TOKEN")
-        return
+    # Crear aplicación
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    load_users()
-
-    app = ApplicationBuilder().token(TOKEN).post_init(on_startup).build()
-
+    # Comandos
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(buttons))
+    app.add_handler(CommandHandler("clima", weather_now))
 
+    # Scheduler cada 5 minutos
+    scheduler.add_job(lambda: asyncio.create_task(send_weather(app.bot)), 'interval', minutes=5)
+    scheduler.start()
+
+    # Iniciar bot
     print("Bot corriendo limpio")
+    await app.run_polling()
 
-    # 🔥 polling robusto (ignora conflictos iniciales)
-    app.run_polling(drop_pending_updates=True, allowed_updates=[])
-
+# ---------------- Ejecutar ----------------
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
