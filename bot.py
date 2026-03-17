@@ -11,17 +11,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
 
-# Cambia a False cuando quieras el horario real
-TEST_MODE = True
+TEST_MODE = True          # Cambia a False para modo real (07:57 y 19:57)
 
 chat_info = {}
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Solo pueblos confirmados que devuelven datos en Open-Meteo
+# ================= PUEBLOS OFICIALES ALPÚJARRA (solo los que funcionan) =================
 TOWN_COORDS = {
     "Órgiva": (36.9026, -3.4238),
     "Lanjarón": (36.9185, -3.4818),
@@ -34,10 +30,17 @@ TOWN_COORDS = {
     "Carataunas": (36.9220, -3.4083),
     "Pórtugos": (36.9419, -3.3107),
     "Busquístar": (36.9380, -3.2944),
+    "Atalbéitar": (36.9345, -3.3090),
     "Pitres": (36.9300, -3.3200),
+    "Mecina": (36.9250, -3.3150),
+    "Fondales": (36.9251, -3.3214),
+    "Ferreirola": (36.9298, -3.3139),
+    "Capilerilla": (36.9200, -3.3100),
+    "Mecinilla": (36.9269, -3.3236),
     "Bérchules": (36.9768, -3.1907),
     "Almegíjar": (36.9026, -3.3012),
     "Cádiar": (36.9459, -3.1802),
+    "Polopos": (36.7947, -3.2982),
     "Válor": (36.9962, -3.0829),
     "Yegen": (36.9810, -3.1190),
 }
@@ -45,134 +48,84 @@ TOWN_COORDS = {
 TOWNS = list(TOWN_COORDS.keys())
 
 TEXTS = {
-    "es": {
-        "welcome": "🌦️ MeteoAlpujarra\nElige idioma / Select language",
-        "select": "Elige tu pueblo:",
-        "ok": "✅ Activado para {}",
-        "city": "Escribe /ciudad Nombre del pueblo",
-        "morning": "☀️ Mañana",
-        "afternoon": "🌇 Tarde",
-        "uv_low": "UV bajo 🌤️",
-        "uv_medium": "UV medio ☀️",
-        "uv_high": "UV alto 🧴",
-        "advice_hot": "Hace calor 😎, ropa ligera y bebe agua",
-        "advice_cold": "Hace frío 🧥, abrígate bien",
-        "advice_rain": "Llueve 🌧️, lleva paraguas/impermeable"
-    }
+    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","city":"Escribe /ciudad Nombre","morning":"☀️ Mañana","afternoon":"🌇 Tarde","uv_low":"UV bajo 🌤️","uv_medium":"UV medio ☀️","uv_high":"UV alto 🧴","advice_hot":"Hace calor 😎, ropa ligera y bebe agua","advice_cold":"Hace frío 🧥, abrígate bien","advice_rain":"Llueve 🌧️, lleva paraguas/impermeable"},
+    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Choose your village:","ok":"✅ Activated for {}","city":"Type /city Name","morning":"☀️ Morning","afternoon":"🌇 Afternoon","uv_low":"Low UV 🌤️","uv_medium":"Medium UV ☀️","uv_high":"High UV 🧴","advice_hot":"Hot 😎, light clothes and drink water","advice_cold":"Cold 🧥, dress warmly","advice_rain":"Rain 🌧️, take umbrella/raincoat"},
+    "de": {"select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","city":"Schreibe /stadt Name","morning":"☀️ Morgen","afternoon":"🌇 Nachmittag","uv_low":"UV niedrig 🌤️","uv_medium":"UV mittel ☀️","uv_high":"UV hoch 🧴","advice_hot":"Heiß 😎, leichte Kleidung","advice_cold":"Kalt 🧥, warm anziehen","advice_rain":"Regen 🌧️, Regenschirm mitnehmen"},
+    "nl": {"select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","city":"Typ /stad Naam","morning":"☀️ Ochtend","afternoon":"🌇 Middag","uv_low":"UV laag 🌤️","uv_medium":"UV middel ☀️","uv_high":"UV hoog 🧴","advice_hot":"Warm 😎, lichte kleding","advice_cold":"Koud 🧥, warm aankleden","advice_rain":"Regen 🌧️, neem paraplu/regenkleding"},
+    "fr": {"select":"Choisissez votre village:","ok":"✅ Activé pour {}","city":"Écris /ville Nom","morning":"☀️ Matin","afternoon":"🌇 Après-midi","uv_low":"UV faible 🌤️","uv_medium":"UV moyen ☀️","uv_high":"UV élevé 🧴","advice_hot":"Chaud 😎, vêtements légers","advice_cold":"Froid 🧥, habillez-vous chaudement","advice_rain":"Pluie 🌧️, prenez parapluie/imperméable"}
 }
 
 def t(chat_id, key):
     lang = chat_info.get(chat_id, {}).get("lang", "es")
     return TEXTS.get(lang, TEXTS["es"]).get(key, key)
 
-# ================= OBTENER DATOS METEO =================
-def get_meteo_data(nombre):
-    lat, lon = TOWN_COORDS.get(nombre, (None, None))
-    if lat is None:
-        return None, "Pueblo no encontrado en la lista"
-
-    url = (
-        f"https://api.open-meteo.com/v1/forecast?"
-        f"latitude={lat}&longitude={lon}"
-        f"&current_weather=true"
-        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m"
-        f"&timezone=Europe/Madrid"
-    )
-
+# ================= METEO =================
+def get_weather(lat, lon):
+    if not lat or not lon:
+        return {}
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid&forecast_days=2"
     try:
-        r = requests.get(url, timeout=12)
+        r = requests.get(url, timeout=15)
         r.raise_for_status()
         data = r.json()
-
-        if "daily" not in data or "temperature_2m_max" not in data["daily"]:
-            logging.warning(f"Respuesta sin daily para {nombre}: {data}")
-            return None, "Datos diarios no disponibles en Open-Meteo"
-
-        logging.info(f"Datos OK para {nombre}: max {data['daily']['temperature_2m_max'][0]}°C")
-        return data, None
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error conexión API para {nombre}: {str(e)}")
-        return None, f"Error de conexión: {str(e)}"
+        logging.info(f"API OK para {lat},{lon} → daily existe: {'daily' in data}")
+        return data
     except Exception as e:
-        logging.error(f"Error parseando respuesta para {nombre}: {str(e)}")
-        return None, "Error inesperado al procesar datos"
+        logging.error(f"API Open-Meteo falló: {type(e).__name__} - {e}")
+        return {}
 
-# ================= AUXILIARES =================
 def wind_scale(kmh):
     if kmh is None: return "?"
-    scale = min(10, round(kmh / 6))
-    return f"{int(kmh)} km/h | {scale}/10"
+    return f"{kmh} km/h | {min(10, round(kmh/6))}/10"
 
 def thermal_feel(temp, wind):
     if temp is None or wind is None: return ""
-    feel = temp - sqrt(wind) / 3
-    return f"🌡️ Sens. térmica ≈ {round(feel)}°C"
+    return f"🌡️ Sens. térmica: {round(temp - sqrt(wind)/3)}°C"
 
 def uv_desc(uv, chat_id):
-    uv = uv or 0
     if uv < 3: return t(chat_id, "uv_low")
     if uv < 6: return t(chat_id, "uv_medium")
     return t(chat_id, "uv_high")
 
-def clothing_advice(max_temp, rain_prob, chat_id):
-    if rain_prob > 30: return t(chat_id, "advice_rain")
-    if max_temp >= 28: return t(chat_id, "advice_hot")
-    if max_temp <= 15: return t(chat_id, "advice_cold")
+def clothing_advice(temp, rain, chat_id):
+    if rain > 30: return t(chat_id, "advice_rain")
+    if temp >= 28: return t(chat_id, "advice_hot")
+    if temp <= 15: return t(chat_id, "advice_cold")
     return ""
 
-# ================= ENVIAR MENSAJE =================
+# ================= ENVÍO =================
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
-    if chat_id not in chat_info:
+    if chat_id not in chat_info: return
+
+    info = chat_info[chat_id]
+    nombre = info["nombre"]
+    lat, lon = TOWN_COORDS.get(nombre, (None, None))
+
+    data = get_weather(lat, lon)
+
+    if not data or "daily" not in data or not data["daily"].get("temperature_2m_max"):
+        msg = f"⚠️ {nombre}\nNo se pudo obtener el tiempo ahora.\nAPI Open-Meteo sin respuesta.\nReintenta en 1 minuto."
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=msg)
+        except: pass
         return
 
-    nombre = chat_info[chat_id].get("nombre", "—")
-    data, error = get_meteo_data(nombre)
+    d = data["daily"]
+    c = data.get("current_weather", {})
 
-    if error:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"⚠️ {nombre}\n{error}\nPrueba más tarde o con otro pueblo."
-        )
-        return
+    msg = f"📍 {nombre}\n\n"
+    msg += f"🕗 {'Tarde' if (not TEST_MODE and 'weather_e' in context.job.name) else 'Mañana'}\n"
+    msg += f"{thermal_feel(c.get('temperature'), d['wind_speed_10m'][0])}\n"
+    msg += f"🌡️ {c.get('temperature', '--')}°C   Mín {d['temperature_2m_min'][0]}°C   Máx {d['temperature_2m_max'][0]}°C\n"
+    msg += f"🌬️ {wind_scale(d['wind_speed_10m'][0])}   {uv_desc(d['uv_index_max'][0], chat_id)}\n"
+    msg += f"{clothing_advice(d['temperature_2m_max'][0], d['precipitation_probability_max'][0], chat_id)}"
 
-    daily = data["daily"]
-    current = data.get("current_weather", {})
-
-    max_t = daily["temperature_2m_max"][0]
-    min_t = daily["temperature_2m_min"][0]
-    rain_p = daily["precipitation_probability_max"][0]
-    uv = daily.get("uv_index_max", [0])[0]
-    wind = daily["wind_speed_10m"][0]
-    curr_t = current.get("temperature", round((min_t + max_t) / 2))
-
-    prefix = "🧪 PRUEBA " if TEST_MODE else ""
-    is_tarde = (not TEST_MODE) and "weather_e" in context.job.name
-
-    msg = f"{prefix}📍 {nombre}\n\n"
-    msg += f"🕗 {'Tarde' if is_tarde else 'Mañana'}:\n"
-    msg += f"{thermal_feel(curr_t, wind)}\n"
-    msg += f"🌡️ {curr_t}°C   Mín {min_t}°C   Máx {max_t}°C\n"
-    msg += f"🌬️ {wind_scale(wind)}   {uv_desc(uv, chat_id)}\n"
-    msg += clothing_advice(max_t, rain_p, chat_id)
+    if TEST_MODE:
+        msg = "🧪 PRUEBA " + msg
 
     await context.bot.send_message(chat_id=chat_id, text=msg, disable_notification=TEST_MODE)
-
-# ================= COMANDO DE PRUEBA API =================
-async def test_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    if chat_id not in chat_info or "nombre" not in chat_info[chat_id]:
-        await update.message.reply_text("Primero elige un pueblo con /start")
-        return
-
-    nombre = chat_info[chat_id]["nombre"]
-    _, error = get_meteo_data(nombre)
-
-    if error:
-        await update.message.reply_text(f"❌ Problema con {nombre}:\n{error}")
-    else:
-        await update.message.reply_text(f"✅ Datos OK para {nombre}\nPuedes esperar el próximo envío automático")
+    logging.info(f"Mensaje enviado correctamente a {chat_id} ({nombre})")
 
 # ================= HANDLERS =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -180,8 +133,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def kb_lang():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es")],
-        # Puedes añadir más idiomas si los implementas
+        [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es"), InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
+        [InlineKeyboardButton("🇩🇪 Deutsch", callback_data="lang_de"), InlineKeyboardButton("🇳🇱 Nederlands", callback_data="lang_nl"), InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr")]
     ])
 
 def kb_towns():
@@ -192,8 +145,6 @@ def kb_towns():
     return InlineKeyboardMarkup(rows)
 
 def remove_jobs(app, chat_id):
-    if not app.job_queue:
-        return
     for job in app.job_queue.jobs():
         if str(chat_id) in job.name:
             job.schedule_removal()
@@ -220,74 +171,57 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_users()
         remove_jobs(context.application, chat_id)
 
-        tz = pytz.timezone('Europe/Madrid')
-
         if TEST_MODE:
-            context.application.job_queue.run_repeating(
-                send_weather, interval=300, first=10,
-                name=f"weather_test_{chat_id}", data={"chat_id": chat_id}
-            )
-            context.application.job_queue.run_once(
-                send_weather, when=0.1,
-                name=f"immediate_{chat_id}", data={"chat_id": chat_id}
-            )
-            await query.edit_message_text(f"🧪 Modo pruebas para {town}\n→ Mensaje en segundos\n→ Luego cada 5 min")
+            context.application.job_queue.run_repeating(send_weather, interval=300, first=5, name=f"weather_{chat_id}", data={"chat_id": chat_id})
+            context.application.job_queue.run_once(send_weather, when=0.1, name=f"imm_{chat_id}", data={"chat_id": chat_id})
+            await query.edit_message_text(f"🧪 Pruebas activadas para {town}\nMensaje en segundos + cada 5 min")
         else:
-            context.application.job_queue.run_daily(
-                send_weather, time(7, 57, tzinfo=tz),
-                name=f"weather_m_{chat_id}", data={"chat_id": chat_id}
-            )
-            context.application.job_queue.run_daily(
-                send_weather, time(19, 57, tzinfo=tz),
-                name=f"weather_e_{chat_id}", data={"chat_id": chat_id}
-            )
+            tz = pytz.timezone('Europe/Madrid')
+            context.application.job_queue.run_daily(send_weather, time(7,57,tzinfo=tz), name=f"m_{chat_id}", data={"chat_id": chat_id})
+            context.application.job_queue.run_daily(send_weather, time(19,57,tzinfo=tz), name=f"e_{chat_id}", data={"chat_id": chat_id})
             await query.edit_message_text(t(chat_id, "ok").format(town))
 
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(t(update.effective_chat.id, "city"))
         return
-    town = " ".join(context.args).title()
+    town = " ".join(context.args)
     if town not in TOWN_COORDS:
-        await update.message.reply_text(f"{town} no está en la lista de pueblos disponibles")
+        await update.message.reply_text("Pueblo no disponible")
         return
     chat_id = update.effective_chat.id
     chat_info.setdefault(chat_id, {})["nombre"] = town
     save_users()
-    await update.message.reply_text(f"✅ {town} configurado")
+    await update.message.reply_text(f"✅ {town} guardado")
 
 def load_users():
     global chat_info
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            chat_info = {int(k): v for k, v in data.items()}
+            chat_info = {int(k): v for k, v in json.load(f).items()}
+        logging.info(f"{len(chat_info)} usuarios cargados")
     except:
         chat_info = {}
+        logging.info("Base de usuarios vacía")
 
 def save_users():
-    try:
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump({str(k): v for k, v in chat_info.items()}, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logging.error(f"Error guardando usuarios: {e}")
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump({str(k): v for k, v in chat_info.items()}, f, ensure_ascii=False, indent=2)
 
 def main():
     if not TOKEN:
-        print("ERROR: TOKEN no encontrado en variables de entorno")
+        print("ERROR: No hay TOKEN en variables de entorno")
         return
 
+    print("🤖 MeteoAlpujarra iniciado (solo pueblos válidos)")
     load_users()
-    print("Bot iniciado - pueblos válidos cargados:", len(TOWNS))
 
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ciudad", ciudad))
-    app.add_handler(CommandHandler("testapi", test_api))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
