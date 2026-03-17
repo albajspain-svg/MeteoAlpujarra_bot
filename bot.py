@@ -2,8 +2,6 @@ import os
 import json
 import logging
 import requests
-import pytz
-from datetime import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -18,11 +16,11 @@ logging.basicConfig(level=logging.INFO)
 TOWNS = ["Órgiva","Lanjarón","Pampaneira","Bubión","Capileira","Trevélez"]
 
 TEXTS = {
-    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","error":"⚠️ Error obteniendo datos"},
-    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language","select":"Choose your village:","ok":"✅ Activated for {}","error":"⚠️ Error getting data"},
-    "fr": {"welcome":"🌦️ MeteoAlpujarra\nChoisissez la langue","select":"Choisissez votre village:","ok":"✅ Activé pour {}","error":"⚠️ Erreur données"},
-    "de": {"welcome":"🌦️ MeteoAlpujarra\nSprache wählen","select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","error":"⚠️ Fehler Daten"},
-    "nl": {"welcome":"🌦️ MeteoAlpujarra\nKies taal","select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","error":"⚠️ Fout data"},
+    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","error":"⚠️ Error clima"},
+    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language","select":"Choose your village:","ok":"✅ Activated for {}","error":"⚠️ Weather error"},
+    "fr": {"welcome":"🌦️ MeteoAlpujarra\nChoisissez la langue","select":"Choisissez votre village:","ok":"✅ Activé pour {}","error":"⚠️ Erreur météo"},
+    "de": {"welcome":"🌦️ MeteoAlpujarra\nSprache wählen","select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","error":"⚠️ Wetterfehler"},
+    "nl": {"welcome":"🌦️ MeteoAlpujarra\nKies taal","select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","error":"⚠️ Weer fout"},
 }
 
 def t(cid, key):
@@ -48,28 +46,23 @@ def parse_weather(data, cid):
         uv = curr.get("uvIndex", "0")
 
         hourly = today.get("hourly", [])
-
         if len(hourly) < 6:
             return t(cid, "error")
 
-        morning = hourly[2]
-        afternoon = hourly[5]
-
-        rain_m = morning.get("chanceofrain", "0")
-        rain_a = afternoon.get("chanceofrain", "0")
+        rain_m = hourly[2].get("chanceofrain", "0")
+        rain_a = hourly[5].get("chanceofrain", "0")
 
         msg = f"🌡️ {temp}°C\n"
         msg += f"☀️ {rain_m}% 🌧️\n"
         msg += f"🌇 {rain_a}% 🌧️\n"
-        msg += f"🧴 UV: {uv}\n"
+        msg += f"🧴 UV: {uv}"
 
         if TEST_MODE:
             msg = "🧪 " + msg
 
         return msg
 
-    except Exception as e:
-        logging.error(e)
+    except:
         return t(cid, "error")
 
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
@@ -138,6 +131,11 @@ def save_users():
     with open(DB_FILE,"w") as f:
         json.dump({str(k):v for k,v in chat_info.items()}, f)
 
+async def on_startup(app):
+    # 🔥 CIERRA TODO en Telegram (clave real)
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    print("🔥 Sesiones antiguas limpiadas")
+
 def main():
     if not TOKEN:
         print("No TOKEN")
@@ -145,13 +143,15 @@ def main():
 
     load_users()
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).post_init(on_startup).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    # 🔥 anti-409 definitivo
-    app.run_polling(drop_pending_updates=True, close_loop=False)
+    print("Bot corriendo limpio")
+
+    # 🔥 polling robusto (ignora conflictos iniciales)
+    app.run_polling(drop_pending_updates=True, allowed_updates=[])
 
 if __name__ == "__main__":
     main()
