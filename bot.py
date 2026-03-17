@@ -58,14 +58,23 @@ def preload_town_coords():
 def meteo(lat, lon):
     if lat is None or lon is None:
         return {}
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid"
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid"
     try:
         return requests.get(url,timeout=10).json()
     except:
         return {}
 
 def wind_scale(kmh):
-    return f"{min(10,round(kmh/6))}/10" if kmh is not None else "?"
+    if kmh is None:
+        return "?"
+    scale = min(10, round(kmh / 6))
+    return f"{kmh} km/h | {scale}/10"
+
+def thermal_feel(temp, wind):
+    if temp is None or wind is None:
+        return ""
+    feel = temp - ((wind/10)**0.5)  # aproximación simple
+    return f"🌡️ Sensación térmica: {round(feel)}°C"
 
 def uv_desc(uv,chat_id):
     return t(chat_id,"uv_low") if uv<3 else t(chat_id,"uv_medium") if uv<6 else t(chat_id,"uv_high")
@@ -89,9 +98,11 @@ def kb_towns():
     return InlineKeyboardMarkup(rows)
 
 def remove_jobs(app,chat_id):
-    if not app.job_queue: return
+    if not hasattr(app,'job_queue') or not app.job_queue:
+        return
     for job in app.job_queue.jobs():
-        if str(chat_id) in job.name: job.schedule_removal()
+        if str(chat_id) in job.name:
+            job.schedule_removal()
 
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     chat_id=context.job.data["chat_id"]
@@ -99,16 +110,23 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     info=chat_info[chat_id]
     data=meteo(info["lat"],info["lon"])
     daily=data.get("daily",{})
+    current=data.get("current_weather",{})
+
     if not daily.get("temperature_2m_max"): return
+
     max_temp = daily.get("temperature_2m_max",[0])[0]
     min_temp = daily.get("temperature_2m_min",[0])[0]
     rain = daily.get("precipitation_probability_max",[0])[0]
     uv = daily.get("uv_index_max",[0])[0]
     wind = daily.get("wind_speed_10m",[0])[0]
+    current_temp = current.get("temperature", (min_temp+max_temp)//2)
 
-    msg=f"📍 {chat_info[chat_id]['nombre']}\n\n"
-    msg+=f"{t(chat_id,'morning')}:\n🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n\n"
-    msg+=f"{t(chat_id,'afternoon')}:\n🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}"
+    msg=f"📍 {info['nombre']}\n\n"
+    msg+=f"{t(chat_id,'morning')}:\n"
+    msg+=f"{thermal_feel(current_temp, wind)} | 🌡️ Actual: {current_temp}°C | Mín: {min_temp}°C | Máx: {max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n\n"
+    msg+=f"{t(chat_id,'afternoon')}:\n"
+    msg+=f"{thermal_feel(current_temp, wind)} | 🌡️ Actual: {current_temp}°C | Mín: {min_temp}°C | Máx: {max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}"
+
     await context.bot.send_message(chat_id,msg)
 
 # ====================== HANDLERS ======================
