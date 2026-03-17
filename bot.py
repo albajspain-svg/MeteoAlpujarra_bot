@@ -4,7 +4,7 @@ import logging
 from datetime import time
 import requests
 import pytz
-from math import radians, cos, sin, asin, sqrt
+from math import sqrt
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -73,7 +73,7 @@ def wind_scale(kmh):
 def thermal_feel(temp, wind):
     if temp is None or wind is None:
         return ""
-    feel = temp - ((wind/10)**0.5)  # aproximación simple
+    feel = temp - sqrt(wind)/3  # aproximación simple
     return f"🌡️ Sensación térmica: {round(feel)}°C"
 
 def uv_desc(uv,chat_id):
