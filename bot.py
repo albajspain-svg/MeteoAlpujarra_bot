@@ -50,7 +50,7 @@ def meteo(lat, lon):
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        f"&current=temperature_2m,weathercode"
+        f"&current=temperature_2m,weathercode,wind_speed_10m"
         f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
         f"&timezone=auto"
     )
@@ -69,6 +69,20 @@ def weather_desc(code):
         61: "🌧️ Lluvia",
         71: "❄️ Nieve",
     }.get(code, "🌡️ Clima variable")
+
+def wind_scale(kmh):
+    if kmh is None:
+        return "?"
+    scale = min(10, round(kmh / 6))
+    if scale <= 2:
+        desc = "Calma"
+    elif scale <= 5:
+        desc = "Suave"
+    elif scale <= 7:
+        desc = "Moderado"
+    else:
+        desc = "Fuerte"
+    return f"{scale}/10 ({desc})"
 
 # ====================== UI ======================
 def kb_lang():
@@ -102,11 +116,14 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     current = data.get("current", {})
     daily = data.get("daily", {})
 
+    wind = current.get("wind_speed_10m")
+
     try:
         msg = (
             f"📍 {info['nombre']}\n\n"
             f"🌡️ Ahora: {current.get('temperature_2m','?')}°C\n"
-            f"{weather_desc(current.get('weathercode'))}\n\n"
+            f"{weather_desc(current.get('weathercode'))}\n"
+            f"🌬️ Viento: {wind} km/h · {wind_scale(wind)}\n\n"
 
             f"📅 Hoy\n"
             f"⬆️ {daily['temperature_2m_max'][0]}°C\n"
