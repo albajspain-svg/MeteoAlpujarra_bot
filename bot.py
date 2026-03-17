@@ -1,15 +1,25 @@
 import os
 import json
+import logging
 from datetime import time, datetime
 import requests
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
 
 TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
-TEST_MODE = True  # 🔥 TRUE = cada 5 min | FALSE = 8:00 y 20:00
+TEST_MODE = True
 
 chat_info = {}
+
+# ====================== LOG ======================
+logging.basicConfig(level=logging.INFO)
 
 # ====================== DB ======================
 def load_users():
@@ -18,61 +28,64 @@ def load_users():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             chat_info = {int(k): v for k, v in data.items()}
-        print(f"✅ {len(chat_info)} usuarios cargados")
     except:
         chat_info = {}
-        print("📂 users.json creado")
 
 def save_users():
     with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in chat_info.items()}, f, ensure_ascii=False, indent=2)
+        json.dump({str(k): v for k, v in chat_info.items()}, f, indent=2)
 
-# ====================== TEXTOS ======================
-TEXTS = {
-    "es": {
-        "welcome": "🌦️ MeteoAlpujarra\n\nSelecciona idioma:",
-        "select": "Elige tu pueblo:",
-        "ok": "✅ Activado para {}",
-        "no": "❗️ Elige primero un pueblo",
-        "otros": "Otros pueblos",
-        "city": "Escribe /ciudad Nombre",
-    },
-    "en": {
-        "welcome": "🌦️ MeteoAlpujarra\n\nSelect language:",
-        "select": "Choose village:",
-        "ok": "✅ Activated for {}",
-        "no": "❗️ Choose a village first",
-        "otros": "Other towns",
-        "city": "Type /city Name",
-    }
-}
-
-TOWNS = ["Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez"]
-
-def t(lang, key):
-    return TEXTS.get(lang, TEXTS["es"]).get(key, "")
+# ====================== PUEBLOS ======================
+TOWNS = [
+    "Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez",
+    "Soportújar", "Cáñar", "Carataunas", "Pórtugos",
+    "Busquístar", "Atalbéitar", "Pitres", "Mecina Fondales",
+    "Ferreirola", "Fondales", "Capilerilla",
+    "Los Tablones", "Bayacas", "Las Barreras",
+    "El Morreón", "Los Cigarrones"
+]
 
 # ====================== METEO ======================
 def meteo(lat, lon):
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m"
-    return requests.get(url).json()
+    url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        f"&current=temperature_2m,weathercode"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+        f"&timezone=auto"
+    )
+    try:
+        return requests.get(url, timeout=10).json()
+    except:
+        return {}
 
-# ====================== TECLADOS ======================
+def weather_desc(code):
+    return {
+        0: "☀️ Despejado",
+        1: "🌤️ Poco nuboso",
+        2: "⛅ Parcialmente nublado",
+        3: "☁️ Nublado",
+        45: "🌫️ Niebla",
+        61: "🌧️ Lluvia",
+        71: "❄️ Nieve",
+    }.get(code, "🌡️ Clima variable")
+
+# ====================== UI ======================
 def kb_lang():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es")],
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")]
     ])
 
-def kb_towns(lang):
-    rows = []
-    for town in TOWNS:
-        rows.append([InlineKeyboardButton(town, callback_data=f"town_{town}")])
-    rows.append([InlineKeyboardButton(t(lang, "otros"), callback_data="otros")])
+def kb_towns():
+    rows = [[InlineKeyboardButton(t, callback_data=f"town_{t}")] for t in TOWNS]
+    rows.append([InlineKeyboardButton("🌍 Otro", callback_data="otros")])
     return InlineKeyboardMarkup(rows)
 
 # ====================== JOBS ======================
 def remove_jobs(app, chat_id):
+    if not app.job_queue:
+        return
     for job in app.job_queue.jobs():
         if str(chat_id) in job.name:
             job.schedule_removal()
@@ -86,50 +99,62 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     info = chat_info[chat_id]
     data = meteo(info["lat"], info["lon"])
 
-    temp = data.get("current", {}).get("temperature_2m", "?")
-
-    msg = f"📍 {info['nombre']}\n🌡️ {temp}°C\n🕒 {datetime.now().strftime('%H:%M')}"
+    current = data.get("current", {})
+    daily = data.get("daily", {})
 
     try:
-        await context.bot.send_message(chat_id, msg)
+        msg = (
+            f"📍 {info['nombre']}\n\n"
+            f"🌡️ Ahora: {current.get('temperature_2m','?')}°C\n"
+            f"{weather_desc(current.get('weathercode'))}\n\n"
+
+            f"📅 Hoy\n"
+            f"⬆️ {daily['temperature_2m_max'][0]}°C\n"
+            f"⬇️ {daily['temperature_2m_min'][0]}°C\n"
+            f"🌧️ {daily['precipitation_probability_max'][0]}%\n\n"
+
+            f"📅 Mañana\n"
+            f"⬆️ {daily['temperature_2m_max'][1]}°C\n"
+            f"⬇️ {daily['temperature_2m_min'][1]}°C\n"
+            f"🌧️ {daily['precipitation_probability_max'][1]}%\n\n"
+
+            f"🕒 {datetime.now().strftime('%H:%M')}"
+        )
     except:
-        pass
+        msg = "❌ Error obteniendo datos"
+
+    await context.bot.send_message(chat_id, msg)
 
 # ====================== HANDLERS ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(t("es", "welcome"), reply_markup=kb_lang())
+    await update.message.reply_text(
+        "🌦️ MeteoAlpujarra\n\nSelecciona idioma:",
+        reply_markup=kb_lang()
+    )
 
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     data = query.data
-    chat_id = query.from_user.id  # 🔥 CLAVE
+    chat_id = query.from_user.id
 
-    print("CLICK:", data)
-
-    # IDIOMA
     if data.startswith("lang_"):
-        lang = data.split("_")[1]
-        chat_info.setdefault(chat_id, {})["lang"] = lang
-        save_users()
-
         await query.edit_message_text(
-            t(lang, "select"),
-            reply_markup=kb_towns(lang)
+            "Elige tu pueblo:",
+            reply_markup=kb_towns()
         )
 
-    # PUEBLO
     elif data.startswith("town_"):
         town = data.replace("town_", "")
-        lang = chat_info.get(chat_id, {}).get("lang", "es")
 
         res = requests.get(
-            f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1"
+            f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",
+            timeout=10
         ).json()
 
         if not res.get("results"):
-            await query.edit_message_text("❌ Error")
+            await query.edit_message_text("❌ No encontrado")
             return
 
         r = res["results"][0]
@@ -137,63 +162,36 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_info[chat_id] = {
             "nombre": r["name"],
             "lat": r["latitude"],
-            "lon": r["longitude"],
-            "lang": lang
+            "lon": r["longitude"]
         }
         save_users()
 
         remove_jobs(context.application, chat_id)
 
-        if TEST_MODE:
-            context.application.job_queue.run_repeating(
-                send_weather,
-                interval=300,
-                first=5,
-                name=f"weather_{chat_id}",
-                data={"chat_id": chat_id}
-            )
-        else:
-            context.application.job_queue.run_daily(
-                send_weather,
-                time(8, 0),
-                name=f"weather_m_{chat_id}",
-                data={"chat_id": chat_id}
-            )
-            context.application.job_queue.run_daily(
-                send_weather,
-                time(20, 0),
-                name=f"weather_e_{chat_id}",
-                data={"chat_id": chat_id}
-            )
+        context.application.job_queue.run_repeating(
+            send_weather,
+            interval=300 if TEST_MODE else 43200,
+            first=5,
+            name=f"weather_{chat_id}",
+            data={"chat_id": chat_id}
+        )
 
-        await query.edit_message_text(t(lang, "ok").format(r["name"]))
+        await query.edit_message_text(f"✅ Activado para {r['name']}")
 
     elif data == "otros":
-        lang = chat_info.get(chat_id, {}).get("lang", "es")
-        await query.edit_message_text(t(lang, "city"))
+        await query.edit_message_text("Escribe /ciudad Nombre")
 
 # ====================== COMANDOS ======================
-async def clima(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-
-    if chat_id not in chat_info:
-        await update.message.reply_text("Usa /start primero")
-        return
-
-    info = chat_info[chat_id]
-    data = meteo(info["lat"], info["lon"])
-    temp = data.get("current", {}).get("temperature_2m", "?")
-
-    await update.message.reply_text(f"📍 {info['nombre']}\n🌡️ {temp}°C")
-
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usa /ciudad Nombre")
         return
 
     town = " ".join(context.args)
+
     res = requests.get(
-        f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1"
+        f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",
+        timeout=10
     ).json()
 
     if not res.get("results"):
@@ -202,13 +200,11 @@ async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     r = res["results"][0]
     chat_id = update.effective_chat.id
-    lang = chat_info.get(chat_id, {}).get("lang", "es")
 
     chat_info[chat_id] = {
         "nombre": r["name"],
         "lat": r["latitude"],
-        "lon": r["longitude"],
-        "lang": lang
+        "lon": r["longitude"]
     }
     save_users()
 
@@ -221,11 +217,11 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("clima", clima))
     app.add_handler(CommandHandler("ciudad", ciudad))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    print("🤖 MeteoAlpujarra PRO funcionando")
+    print("🤖 MeteoAlpujarra PRO MAX funcionando")
+
     app.run_polling()
 
 if __name__ == "__main__":
