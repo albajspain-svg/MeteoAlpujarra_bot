@@ -15,7 +15,7 @@ from telegram.ext import (
 
 TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
-REAL_TIME = True  # True = cada 5 min, False = 08:00 y 20:00
+REAL_TIME = True  # True = cada 5 min, False = diaria 08:00 y 20:00
 
 chat_info = {}
 logging.basicConfig(level=logging.INFO)
@@ -200,25 +200,23 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
         return
     info = chat_info[chat_id]
     data = meteo(info["lat"], info["lon"])
-    daily = data.get("daily",{})
+    daily = data.get("daily", {})
 
-    if not daily:
-        await context.bot.send_message(chat_id,"❌ Error obteniendo datos")
+    max_temp = daily.get("temperature_2m_max", [None])[0]
+    min_temp = daily.get("temperature_2m_min", [None])[0]
+    rain = daily.get("precipitation_probability_max", [0])[0]
+    uv = daily.get("uv_index_max", [0])[0]
+    wind = daily.get("wind_speed_10m", [0])[0]
+
+    if max_temp is None or min_temp is None:
+        await context.bot.send_message(chat_id, "❌ Error obteniendo datos de temperatura")
         return
 
     msg = f"📍 {info['nombre']}\n\n"
-    max_temp = daily["temperature_2m_max"][0]
-    min_temp = daily["temperature_2m_min"][0]
-    rain = daily["precipitation_probability_max"][0]
-    uv = daily.get("uv_index_max",[0])[0]
-    wind = daily.get("wind_speed_10m",[0])[0]
-    weather_code = daily.get("weathercode",[0])[0]
-
     # mañana
     msg += f"{t(chat_id,'morning')}:\n"
     msg += f"🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_index_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n\n"
-
-    # tarde (usamos misma info simple)
+    # tarde
     msg += f"{t(chat_id,'afternoon')}:\n"
     msg += f"🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_index_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n"
 
