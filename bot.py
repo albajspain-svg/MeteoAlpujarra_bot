@@ -69,15 +69,31 @@ def meteo(lat, lon):
     try:
         r = requests.get(url, timeout=12)
         r.raise_for_status()
-        data = r.json()
-        logging.info(f"API meteo respuesta para {lat},{lon}: {data.get('daily', 'sin daily')}")
-        return data
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Fallo API Open-Meteo: {str(e)}")
-        return {}
+        return r.json()
     except Exception as e:
-        logging.error(f"Error inesperado en meteo: {str(e)}")
+        logging.error(f"Error API meteo: {str(e)}")
         return {}
+
+def wind_scale(kmh):
+    if kmh is None: return "?"
+    scale = min(10, round(kmh / 6))
+    return f"{kmh} km/h | {scale}/10"
+
+def thermal_feel(temp, wind):
+    if temp is None or wind is None: return ""
+    feel = temp - sqrt(wind) / 3
+    return f"🌡️ Sens. térmica: {round(feel)}°C"
+
+def uv_desc(uv, chat_id):
+    if uv < 3: return t(chat_id, "uv_low")
+    if uv < 6: return t(chat_id, "uv_medium")
+    return t(chat_id, "uv_high")
+
+def clothing_advice(temp, rain, chat_id):
+    if rain > 30: return t(chat_id, "advice_rain")
+    if temp >= 28: return t(chat_id, "advice_hot")
+    if temp <= 15: return t(chat_id, "advice_cold")
+    return ""
 
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
@@ -85,21 +101,18 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
         return
 
     info = chat_info[chat_id]
-    lat = info.get("lat")
-    lon = info.get("lon")
-    nombre = info.get("nombre", "Pueblo desconocido")
+    data = meteo(info.get("lat"), info.get("lon"))
 
-    data = meteo(lat, lon)
-
-    if not data or "daily" not in data or len(data["daily"].get("time", [])) == 0:
-        msg = f"⚠️ {nombre}\nNo se pudo obtener el tiempo ahora.\nPosible causa: coordenadas inválidas o API sin respuesta."
+    if not data or "daily" not in data or not data["daily"].get("temperature_2m_max"):
         try:
-            await context.bot.send_message(chat_id=chat_id, text=msg)
-        except Exception as e:
-            logging.error(f"No pude enviar aviso a {chat_id}: {e}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"⚠️ {info.get('nombre', 'Pueblo')}: No se pudo obtener el tiempo ahora."
+            )
+        except:
+            pass
         return
 
-    # Datos OK
     daily = data["daily"]
     current = data.get("current_weather", {})
 
@@ -113,27 +126,131 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     prefix = "🧪 PRUEBA " if TEST_MODE else ""
     is_tarde = (not TEST_MODE) and "weather_e" in context.job.name
 
-    msg = f"{prefix}📍 {nombre}\n\n"
+    msg = f"{prefix}📍 {info['nombre']}\n\n"
     msg += f"🕗 {'Tarde' if is_tarde else 'Mañana'}\n"
+    msg += f"{thermal_feel(curr_t, wind)}\n"
     msg += f"🌡️ {curr_t}°C   Mín {min_t}°C   Máx {max_t}°C\n"
-    msg += f"🌬️ {wind:.0f} km/h   {uv_desc(uv, chat_id)}\n"
+    msg += f"🌬️ {wind_scale(wind)}   {uv_desc(uv, chat_id)}\n"
     msg += f"{clothing_advice(max_t, rain_p, chat_id)}"
 
     try:
         await context.bot.send_message(chat_id=chat_id, text=msg, disable_notification=TEST_MODE)
     except Exception as e:
-        logging.error(f"Error enviando mensaje: {e}")
+        logging.error(f"Error enviando: {e}")
 
-# ... (el resto de funciones igual: wind_scale, thermal_feel, uv_desc, clothing_advice, test_send, start, kb_lang, kb_towns, remove_jobs, buttons, ciudad, load_users, save_users)
+async def test_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    await context.bot.send_message(chat_id, "🧪 Prueba /test → si ves esto funciona")
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(TEXTS["es"]["welcome"], reply_markup=kb_lang())
+
+def kb_lang():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es"),
+         InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
+        [InlineKeyboardButton("🇩🇪 Deutsch", callback_data="lang_de"),
+         InlineKeyboardButton("🇳🇱 Nederlands", callback_data="lang_nl"),
+         InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr")]
+    ])
+
+def kb_towns():
+    rows = []
+    for i in range(0, len(TOWNS), 3):
+        row = [InlineKeyboardButton(t, callback_data=f"town_{t}") for t in TOWNS[i:i+3]]
+        rows.append(row)
+    return InlineKeyboardMarkup(rows)
+
+def remove_jobs(app, chat_id):
+    for job in app.job_queue.jobs():
+        if str(chat_id) in job.name:
+            job.schedule_removal()
+
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    chat_id = query.from_user.id
+
+    if data.startswith("lang_"):
+        lang = data.replace("lang_", "")
+        chat_info.setdefault(chat_id, {})["lang"] = lang
+        save_users()
+        await query.edit_message_text(t(chat_id, "select"), reply_markup=kb_towns())
+
+    elif data.startswith("town_"):
+        town = data.replace("town_", "")
+        lat, lon = town_coords.get(town, (None, None))
+        if lat is None:
+            await query.edit_message_text("No se encontraron coordenadas 😕")
+            return
+
+        chat_info.setdefault(chat_id, {})["nombre"] = town
+        chat_info[chat_id]["lat"] = lat
+        chat_info[chat_id]["lon"] = lon
+        save_users()
+        remove_jobs(context.application, chat_id)
+
+        tz = pytz.timezone('Europe/Madrid')
+
+        if TEST_MODE:
+            context.application.job_queue.run_repeating(send_weather, interval=300, first=5,
+                                                        name=f"weather_test_{chat_id}", data={"chat_id": chat_id})
+            context.application.job_queue.run_once(send_weather, when=0.1,
+                                                   name=f"immediate_{chat_id}", data={"chat_id": chat_id})
+            await query.edit_message_text(f"🧪 Modo pruebas para {town}\nMensaje pronto + cada 5 min")
+        else:
+            context.application.job_queue.run_daily(send_weather, time(7, 57, tzinfo=tz),
+                                                    name=f"weather_m_{chat_id}", data={"chat_id": chat_id})
+            context.application.job_queue.run_daily(send_weather, time(19, 57, tzinfo=tz),
+                                                    name=f"weather_e_{chat_id}", data={"chat_id": chat_id})
+            await query.edit_message_text(t(chat_id, "ok").format(town))
+
+async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(t(update.effective_chat.id, "city"))
+        return
+    town = " ".join(context.args)
+    lat, lon = town_coords.get(town, (None, None))
+    chat_id = update.effective_chat.id
+    if lat is None:
+        await update.message.reply_text(f"No encontrado: {town}")
+        return
+    chat_info.setdefault(chat_id, {})["nombre"] = town
+    chat_info[chat_id]["lat"] = lat
+    chat_info[chat_id]["lon"] = lon
+    save_users()
+    await update.message.reply_text(f"✅ {town} guardado")
+
+def load_users():
+    global chat_info
+    try:
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            chat_info = {int(k): v for k, v in json.load(f).items()}
+        logging.info(f"{len(chat_info)} usuarios cargados")
+    except FileNotFoundError:
+        chat_info = {}
+        logging.info("users.json no existe → base vacía")
+    except Exception as e:
+        logging.error(f"Error cargando usuarios: {e}")
+        chat_info = {}
+
+def save_users():
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump({str(k): v for k, v in chat_info.items()}, f, ensure_ascii=False, indent=2)
+        logging.info("Usuarios guardados")
+    except Exception as e:
+        logging.error(f"Error guardando: {e}")
 
 def main():
     if not TOKEN:
-        print("Falta TOKEN")
+        print("ERROR: TOKEN no encontrado")
         return
 
     print("Cargando coordenadas...")
     preload_town_coords()
-    load_users()
+    load_users()   # ← ahora ya está definida antes
 
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -142,7 +259,7 @@ def main():
     app.add_handler(CommandHandler("test", test_send))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    print("Bot iniciado")
+    print("Bot iniciado – prueba /start")
     app.run_polling()
 
 if __name__ == "__main__":
