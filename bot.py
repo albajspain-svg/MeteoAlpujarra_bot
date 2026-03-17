@@ -14,31 +14,18 @@ DB_FILE = "users.json"
 REAL_TIME = True  # True = cada 5 min | False = diaria 08:00 y 20:00
 
 chat_info = {}
-town_coords = {}  # Coordenadas de todos los pueblos precargadas
+town_coords = {}
 logging.basicConfig(level=logging.INFO)
-
-# ====================== DB ======================
-def load_users():
-    global chat_info
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            chat_info = {int(k): v for k, v in data.items()}
-    except:
-        chat_info = {}
-
-def save_users():
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in chat_info.items()}, f, indent=2)
 
 # ====================== PUEBLOS ======================
 TOWNS = [
     "Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez",
     "Soportújar", "Cáñar", "Carataunas", "Pórtugos",
-    "Busquístar", "Atalbéitar", "Pitres", "Mecina Fondales",
-    "Ferreirola", "Fondales", "Capilerilla",
-    "Los Tablones", "Bayacas", "Las Barreras",
-    "El Morreón"
+    "Busquístar", "Atalbéitar", "Pitres", "Mecina", "Fondales",
+    "Ferreirola", "Capilerilla", "Mecinilla",
+    "Las Barreras", "Bayacas", "Los Tablones",
+    "Bérchules", "Almegíjar", "Cádiar", "Polopos", "Turón",
+    "Válor", "Yegen"
 ]
 
 # ====================== TEXTOS ======================
@@ -54,66 +41,78 @@ def t(chat_id,key):
     lang = chat_info.get(chat_id,{}).get("lang","es")
     return TEXTS.get(lang,TEXTS["es"]).get(key,"")
 
+# ====================== PRELOAD COORDS ======================
+def preload_town_coords():
+    for town in TOWNS:
+        try:
+            res = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",timeout=10).json()
+            if res.get("results"):
+                r = res["results"][0]
+                town_coords[town] = (r["latitude"], r["longitude"])
+            else:
+                town_coords[town] = (None,None)
+        except:
+            town_coords[town] = (None,None)
+
 # ====================== METEO ======================
-def meteo(lat,lon):
-    url=f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid"
+def meteo(lat, lon):
+    if lat is None or lon is None:
+        return {}
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid"
     try:
         return requests.get(url,timeout=10).json()
     except:
         return {}
+
+def nearest_town_with_data(lat, lon):
+    dist_list = []
+    for town, coords in town_coords.items():
+        tlat, tlon = coords
+        if tlat is not None:
+            dist = haversine(lat, lon, tlat, tlon)
+            dist_list.append((dist,town))
+    dist_list.sort(key=lambda x:x[0])
+    for _,tn in dist_list:
+        daily = meteo(*town_coords[tn]).get("daily",{})
+        if daily.get("temperature_2m_max"):
+            return tn
+    return None
+
+def haversine(lat1, lon1, lat2, lon2):
+    lat1,lon1,lat2,lon2 = map(radians,[lat1,lon1,lat2,lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
+    c = 2*asin(sqrt(a))
+    return 6371*c
 
 def wind_scale(kmh):
     if kmh is None: return "?"
     return f"{min(10,round(kmh/6))}/10"
 
 def uv_desc(uv,chat_id):
-    if uv<3: return t(chat_id,"uv_low")
-    elif uv<6: return t(chat_id,"uv_medium")
+    if uv < 3: return t(chat_id,"uv_low")
+    elif uv < 6: return t(chat_id,"uv_medium")
     else: return t(chat_id,"uv_high")
 
 def clothing_advice(temp,rain,chat_id):
-    if rain>0: return t(chat_id,"advice_rain")
-    if temp>=28: return t(chat_id,"advice_hot")
-    if temp<=15: return t(chat_id,"advice_cold")
+    if rain > 0: return t(chat_id,"advice_rain")
+    if temp >= 28: return t(chat_id,"advice_hot")
+    if temp <= 15: return t(chat_id,"advice_cold")
     return ""
-
-# ====================== DISTANCIA ======================
-def haversine(lat1, lon1, lat2, lon2):
-    lat1, lon1, lat2, lon2 = map(radians,[lat1, lon1, lat2, lon2])
-    dlat = lat2-lat1
-    dlon = lon2-lon1
-    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
-    c = 2*asin(sqrt(a))
-    return 6371*c
-
-def nearest_town_with_data(lat, lon):
-    # Buscar el pueblo más cercano con datos precargados
-    for town in sorted(TOWNS, key=lambda x: haversine(lat, lon, town_coords[x][0], town_coords[x][1])):
-        t_lat, t_lon = town_coords[town]
-        data = meteo(t_lat, t_lon).get("daily",{})
-        if data.get("temperature_2m_max"):
-            return town, t_lat, t_lon
-    return TOWNS[0], town_coords[TOWNS[0]][0], town_coords[TOWNS[0]][1]
-
-# ====================== PRELOAD COORDS ======================
-def preload_town_coords():
-    global town_coords
-    for town in TOWNS:
-        try:
-            res = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",timeout=10).json()
-            if res.get("results"):
-                r=res["results"][0]
-                town_coords[town] = (r["latitude"], r["longitude"])
-            else:
-                town_coords[town] = (36.9999, -3.5)
-        except:
-            town_coords[town] = (36.9999, -3.5)
 
 # ====================== UI ======================
 def kb_lang():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇪🇸 Español",callback_data="lang_es"),InlineKeyboardButton("🇬🇧 English",callback_data="lang_en")],
-        [InlineKeyboardButton("🇩🇪 Deutsch",callback_data="lang_de"),InlineKeyboardButton("🇳🇱 Nederlands",callback_data="lang_nl"),InlineKeyboardButton("🇫🇷 Français",callback_data="lang_fr")]
+        [
+            InlineKeyboardButton("🇪🇸 Español",callback_data="lang_es"),
+            InlineKeyboardButton("🇬🇧 English",callback_data="lang_en")
+        ],
+        [
+            InlineKeyboardButton("🇩🇪 Deutsch",callback_data="lang_de"),
+            InlineKeyboardButton("🇳🇱 Nederlands",callback_data="lang_nl"),
+            InlineKeyboardButton("🇫🇷 Français",callback_data="lang_fr")
+        ]
     ])
 
 def kb_towns():
@@ -134,13 +133,12 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     info=chat_info[chat_id]
     data=meteo(info["lat"],info["lon"])
     daily=data.get("daily",{})
-
     if not daily.get("temperature_2m_max"):
-        town, lat, lon = nearest_town_with_data(info["lat"], info["lon"])
-        chat_info[chat_id].update({"nombre":town,"lat":lat,"lon":lon})
-        data = meteo(lat, lon)
-        daily = data.get("daily",{})
-
+        town=nearest_town_with_data(info["lat"], info["lon"])
+        if town:
+            chat_info[chat_id].update({"nombre":town,"lat":town_coords[town][0],"lon":town_coords[town][1]})
+            data=meteo(chat_info[chat_id]["lat"],chat_info[chat_id]["lon"])
+            daily=data.get("daily",{})
     max_temp = daily.get("temperature_2m_max",[0])[0]
     min_temp = daily.get("temperature_2m_min",[0])[0]
     rain = daily.get("precipitation_probability_max",[0])[0]
@@ -161,7 +159,6 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data=query.data
     chat_id=query.from_user.id
-
     if data.startswith("lang_"):
         lang=data.replace("lang_","")
         chat_info.setdefault(chat_id,{})["lang"]=lang
@@ -169,7 +166,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(t(chat_id,"select"),reply_markup=kb_towns())
     elif data.startswith("town_"):
         town=data.replace("town_","")
-        lat, lon = town_coords.get(town,(36.9999,-3.5))
+        lat, lon = town_coords.get(town,(None,None))
         chat_info.setdefault(chat_id,{})["nombre"]=town
         chat_info[chat_id]["lat"]=lat
         chat_info[chat_id]["lon"]=lon
@@ -188,14 +185,26 @@ async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t(update.effective_chat.id,"city"))
         return
     town=" ".join(context.args)
-    # Buscamos en precargadas
-    lat, lon = town_coords.get(town,(36.9999,-3.5))
+    lat, lon = town_coords.get(town,(None,None))
     chat_id=update.effective_chat.id
     chat_info.setdefault(chat_id,{})["nombre"]=town
     chat_info[chat_id]["lat"]=lat
     chat_info[chat_id]["lon"]=lon
     save_users()
     await update.message.reply_text(f"✅ {town} guardado")
+
+def load_users():
+    global chat_info
+    try:
+        with open(DB_FILE,"r",encoding="utf-8") as f:
+            data=json.load(f)
+            chat_info={int(k):v for k,v in data.items()}
+    except:
+        chat_info={}
+
+def save_users():
+    with open(DB_FILE,"w",encoding="utf-8") as f:
+        json.dump({str(k):v for k,v in chat_info.items()},f,indent=2)
 
 # ====================== MAIN ======================
 def main():
