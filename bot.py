@@ -14,7 +14,6 @@ DB_FILE = "users.json"
 
 # ================= CONFIGURACIÓN ==================
 TEST_MODE = True          # Cambia a False para modo real (07:57 y 19:57)
-REAL_TIME = True          # True = cada 5 min (test) | False = solo horarios fijos
 
 chat_info = {}
 town_coords = {}
@@ -46,7 +45,7 @@ TEXTS = {
         "advice_cold": "Hace frío 🧥, abrígate bien",
         "advice_rain": "Llueve 🌧️, lleva paraguas/impermeable"
     },
-    # ... (mantén los otros idiomas si los usas)
+    # Añade otros idiomas si los necesitas
 }
 
 def t(chat_id, key):
@@ -84,31 +83,24 @@ def meteo(lat, lon):
         return {}
 
 def wind_scale(kmh):
-    if kmh is None:
-        return "?"
+    if kmh is None: return "?"
     scale = min(10, round(kmh / 6))
     return f"{kmh} km/h | {scale}/10"
 
 def thermal_feel(temp, wind):
-    if temp is None or wind is None:
-        return ""
+    if temp is None or wind is None: return ""
     feel = temp - sqrt(wind) / 3
     return f"🌡️ Sens. térmica: {round(feel)}°C"
 
 def uv_desc(uv, chat_id):
-    if uv < 3:
-        return t(chat_id, "uv_low")
-    if uv < 6:
-        return t(chat_id, "uv_medium")
+    if uv < 3: return t(chat_id, "uv_low")
+    if uv < 6: return t(chat_id, "uv_medium")
     return t(chat_id, "uv_high")
 
 def clothing_advice(temp, rain, chat_id):
-    if rain and rain > 30:
-        return t(chat_id, "advice_rain")
-    if temp >= 28:
-        return t(chat_id, "advice_hot")
-    if temp <= 15:
-        return t(chat_id, "advice_cold")
+    if rain and rain > 30: return t(chat_id, "advice_rain")
+    if temp >= 28: return t(chat_id, "advice_hot")
+    if temp <= 15: return t(chat_id, "advice_cold")
     return ""
 
 # ================= ENVÍO ==================
@@ -143,7 +135,7 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     current_temp = current.get("temperature", (min_temp + max_temp) // 2)
 
     prefix = "🧪 PRUEBA " if TEST_MODE else ""
-    is_afternoon = "weather_e" in job.name if not TEST_MODE else False
+    is_afternoon = not TEST_MODE and "weather_e" in job.name
     moment = "Tarde" if is_afternoon else "Mañana"
 
     msg = f"{prefix}📍 {info['nombre']}\n\n"
@@ -160,11 +152,11 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=chat_id,
             text=msg,
-            disable_notification=TEST_MODE  # menos molesto en pruebas
+            disable_notification=TEST_MODE
         )
         logging.info(f"Mensaje enviado OK a {chat_id} ({info.get('nombre')})")
     except TelegramError as te:
-        logging.error(f"Error Telegram a {chat_id}: {te.message} - {type(te).__name__}")
+        logging.error(f"Error Telegram a {chat_id}: {te.message}")
     except Exception as e:
         logging.exception(f"Error inesperado enviando a {chat_id}")
 
@@ -172,12 +164,12 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
 async def test_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     try:
-        await context.bot.send_message(chat_id, "🧪 Esto es una prueba manual con /test\nSi lo ves → el bot puede enviar mensajes")
+        await context.bot.send_message(chat_id, "🧪 Prueba manual (/test)\nSi ves esto → el bot puede enviar mensajes")
         await update.message.reply_text("✅ Prueba enviada. ¿Te ha llegado?")
     except TelegramError as te:
-        await update.message.reply_text(f"❌ Error: {te.message}")
+        await update.message.reply_text(f"❌ Error Telegram: {te.message}")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error inesperado: {str(e)}")
+        await update.message.reply_text(f"❌ Error: {str(e)}")
 
 # ================= HANDLERS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -236,20 +228,25 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tz = pytz.timezone('Europe/Madrid')
 
         if TEST_MODE:
+            # Programar cada 5 minutos
             context.application.job_queue.run_repeating(
                 send_weather,
                 interval=300,
-                first=5,
+                first=10,
                 name=f"weather_test_{chat_id}",
                 data={"chat_id": chat_id}
             )
-            # Envío inmediato para probar YA
-            await send_weather(ContextTypes.DEFAULT_TYPE(
-                job_queue=context.application.job_queue,
-                bot=context.bot,
+            # Ejecutar INMEDIATAMENTE una vez para probar
+            context.application.job_queue.run_once(
+                send_weather,
+                when=0.1,  # casi inmediato
+                name=f"weather_test_immediate_{chat_id}",
                 data={"chat_id": chat_id}
-            ))
-            await query.edit_message_text(f"🧪 Modo PRUEBAS para {town}\n(Envío cada 5 min + prueba inmediata)")
+            )
+            await query.edit_message_text(
+                f"🧪 Modo PRUEBAS activado para {town}\n"
+                f"(Envío cada 5 min + mensaje de prueba inmediato)"
+            )
         else:
             context.application.job_queue.run_daily(
                 send_weather, time(7, 57, tzinfo=tz),
@@ -259,7 +256,9 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 send_weather, time(19, 57, tzinfo=tz),
                 name=f"weather_e_{chat_id}", data={"chat_id": chat_id}
             )
-            await query.edit_message_text(t(chat_id, "ok").format(town) + "\n(3 min antes 8h y 20h)")
+            await query.edit_message_text(
+                t(chat_id, "ok").format(town) + "\n(3 min antes de 8h y 20h)"
+            )
 
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -302,7 +301,7 @@ def save_users():
 # ================= MAIN ==================
 def main():
     if not TOKEN:
-        print("ERROR: No se encontró el TOKEN en las variables de entorno")
+        print("ERROR: TOKEN no encontrado en variables de entorno")
         return
 
     print("⏳ Cargando coordenadas...")
@@ -316,7 +315,7 @@ def main():
     app.add_handler(CommandHandler("test", test_send))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    print("🤖 MeteoAlpujarra iniciado – mira el log para ver qué pasa")
+    print("🤖 MeteoAlpujarra iniciado – mira el log")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
