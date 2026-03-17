@@ -58,7 +58,9 @@ TEXTS = {
         "uv_high": "UV alto 🧴",
         "advice_hot": "Hace calor 😎, ropa ligera y bebe agua",
         "advice_cold": "Hace frío 🧥, abrígate bien",
-        "advice_rain": "Llueve 🌧️, lleva paraguas/impermeable"
+        "advice_rain": "Llueve 🌧️, lleva paraguas/impermeable",
+        "morning": "☀️ Mañana",
+        "afternoon": "🌇 Tarde"
     },
     "en": {
         "welcome": "🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma",
@@ -72,7 +74,9 @@ TEXTS = {
         "uv_high": "High UV 🧴",
         "advice_hot": "Hot 😎, light clothes and drink water",
         "advice_cold": "Cold 🧥, dress warmly",
-        "advice_rain": "Rain 🌧️, take umbrella/raincoat"
+        "advice_rain": "Rain 🌧️, take umbrella/raincoat",
+        "morning": "☀️ Morning",
+        "afternoon": "🌇 Afternoon"
     },
     "de": {
         "select": "Wähle dein Dorf:",
@@ -85,7 +89,9 @@ TEXTS = {
         "uv_high": "UV hoch 🧴",
         "advice_hot": "Heiß 😎, leichte Kleidung",
         "advice_cold": "Kalt 🧥, warm anziehen",
-        "advice_rain": "Regen 🌧️, Regenschirm mitnehmen"
+        "advice_rain": "Regen 🌧️, Regenschirm mitnehmen",
+        "morning": "☀️ Morgen",
+        "afternoon": "🌇 Nachmittag"
     },
     "nl": {
         "select": "Kies je dorp:",
@@ -98,7 +104,9 @@ TEXTS = {
         "uv_high": "UV hoog 🧴",
         "advice_hot": "Warm 😎, lichte kleding",
         "advice_cold": "Koud 🧥, warm aankleden",
-        "advice_rain": "Regen 🌧️, neem paraplu/regenkleding"
+        "advice_rain": "Regen 🌧️, neem paraplu/regenkleding",
+        "morning": "☀️ Ochtend",
+        "afternoon": "🌇 Middag"
     },
     "fr": {
         "select": "Choisissez votre village:",
@@ -111,7 +119,9 @@ TEXTS = {
         "uv_high": "UV élevé 🧴",
         "advice_hot": "Chaud 😎, vêtements légers",
         "advice_cold": "Froid 🧥, habillez-vous chaudement",
-        "advice_rain": "Pluie 🌧️, prenez parapluie/imperméable"
+        "advice_rain": "Pluie 🌧️, prenez parapluie/imperméable",
+        "morning": "☀️ Matin",
+        "afternoon": "🌇 Après-midi"
     }
 }
 
@@ -124,25 +134,13 @@ def meteo(lat, lon):
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        f"&hourly=temperature_2m,weathercode,wind_speed_10m,uv_index"
-        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,weathercode,wind_speed_10m"
         f"&timezone=Europe/Madrid"
     )
     try:
         return requests.get(url, timeout=10).json()
     except:
         return {}
-
-def weather_desc(code):
-    return {
-        0: "☀️",
-        1: "🌤️",
-        2: "⛅",
-        3: "☁️",
-        45: "🌫️",
-        61: "🌧️",
-        71: "❄️",
-    }.get(code, "🌡️")
 
 def wind_scale(kmh):
     if kmh is None:
@@ -152,19 +150,19 @@ def wind_scale(kmh):
 
 def uv_index_desc(uv, chat_id):
     if uv < 3:
-        return t(chat_id, "uv_low")
+        return t(chat_id,"uv_low")
     elif uv < 6:
-        return t(chat_id, "uv_medium")
+        return t(chat_id,"uv_medium")
     else:
-        return t(chat_id, "uv_high")
+        return t(chat_id,"uv_high")
 
 def clothing_advice(temp, rain, chat_id):
     if rain > 0:
-        return t(chat_id, "advice_rain")
+        return t(chat_id,"advice_rain")
     if temp >= 28:
-        return t(chat_id, "advice_hot")
+        return t(chat_id,"advice_hot")
     if temp <= 15:
-        return t(chat_id, "advice_cold")
+        return t(chat_id,"advice_cold")
     return ""
 
 # ====================== UI ======================
@@ -183,7 +181,7 @@ def kb_lang():
 
 def kb_towns():
     rows = []
-    for i in range(0, len(TOWNS), 3):
+    for i in range(0,len(TOWNS),3):
         row = [InlineKeyboardButton(t, callback_data=f"town_{t}") for t in TOWNS[i:i+3]]
         rows.append(row)
     return InlineKeyboardMarkup(rows)
@@ -200,30 +198,31 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     if chat_id not in chat_info:
         return
-
     info = chat_info[chat_id]
     data = meteo(info["lat"], info["lon"])
-    hourly = data.get("hourly", {})
+    daily = data.get("daily",{})
 
-    if not hourly:
-        await context.bot.send_message(chat_id, "❌ Error obteniendo datos")
+    if not daily:
+        await context.bot.send_message(chat_id,"❌ Error obteniendo datos")
         return
 
     msg = f"📍 {info['nombre']}\n\n"
-    for i in range(min(12, len(hourly["temperature_2m"]))):  # mostrar próximas 12h
-        h = i
-        temp = hourly["temperature_2m"][i]
-        code = hourly["weathercode"][i]
-        wind = hourly["wind_speed_10m"][i]
-        uv = hourly.get("uv_index",[0]*len(hourly["temperature_2m"]))[i]
-        rain_prob = data.get("daily", {}).get("precipitation_probability_max", [0])[0]
+    max_temp = daily["temperature_2m_max"][0]
+    min_temp = daily["temperature_2m_min"][0]
+    rain = daily["precipitation_probability_max"][0]
+    uv = daily.get("uv_index_max",[0])[0]
+    wind = daily.get("wind_speed_10m",[0])[0]
+    weather_code = daily.get("weathercode",[0])[0]
 
-        msg += (
-            f"🕒 {h}:00 | 🌡️ {temp}°C {weather_desc(code)} | 🌬️ {wind_scale(wind)} "
-            f"| {uv_index_desc(uv, chat_id)} {clothing_advice(temp,rain_prob,chat_id)}\n"
-        )
+    # mañana
+    msg += f"{t(chat_id,'morning')}:\n"
+    msg += f"🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_index_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n\n"
 
-    await context.bot.send_message(chat_id, msg)
+    # tarde (usamos misma info simple)
+    msg += f"{t(chat_id,'afternoon')}:\n"
+    msg += f"🌡️ {min_temp}–{max_temp}°C | 🌬️ {wind_scale(wind)} | {uv_index_desc(uv,chat_id)} | {clothing_advice(max_temp,rain,chat_id)}\n"
+
+    await context.bot.send_message(chat_id,msg)
 
 # ====================== HANDLERS ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -236,55 +235,52 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.from_user.id
 
     if data.startswith("lang_"):
-        lang = data.replace("lang_", "")
-        chat_info.setdefault(chat_id, {})["lang"] = lang
+        lang = data.replace("lang_","")
+        chat_info.setdefault(chat_id, {})["lang"]=lang
         save_users()
-        await query.edit_message_text(t(chat_id, "select"), reply_markup=kb_towns())
+        await query.edit_message_text(t(chat_id,"select"), reply_markup=kb_towns())
     elif data.startswith("town_"):
-        town = data.replace("town_", "")
-        res = requests.get(
-            f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",
-            timeout=10
-        ).json()
+        town = data.replace("town_","")
+        res = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",timeout=10).json()
         if not res.get("results"):
             await query.edit_message_text(t(chat_id,"notfound"))
             return
-        r = res["results"][0]
-        chat_info[chat_id].update({"nombre": r["name"],"lat": r["latitude"],"lon": r["longitude"]})
+        r=res["results"][0]
+        chat_info[chat_id].update({"nombre":r["name"],"lat":r["latitude"],"lon":r["longitude"]})
         save_users()
-        remove_jobs(context.application, chat_id)
+        remove_jobs(context.application,chat_id)
         if REAL_TIME:
-            context.application.job_queue.run_repeating(send_weather, interval=300, first=5, name=f"weather_{chat_id}", data={"chat_id": chat_id})
+            context.application.job_queue.run_repeating(send_weather,interval=300,first=5,name=f"weather_{chat_id}",data={"chat_id":chat_id})
         else:
-            tz = pytz.timezone('Europe/Madrid')
-            context.application.job_queue.run_daily(send_weather, time(8,0,tzinfo=tz), name=f"weather_m_{chat_id}", data={"chat_id": chat_id})
-            context.application.job_queue.run_daily(send_weather, time(20,0,tzinfo=tz), name=f"weather_e_{chat_id}", data={"chat_id": chat_id})
-        await query.edit_message_text(t(chat_id, "ok").format(r["name"]))
+            tz=pytz.timezone('Europe/Madrid')
+            context.application.job_queue.run_daily(send_weather,time(8,0,tzinfo=tz),name=f"weather_m_{chat_id}",data={"chat_id":chat_id})
+            context.application.job_queue.run_daily(send_weather,time(20,0,tzinfo=tz),name=f"weather_e_{chat_id}",data={"chat_id":chat_id})
+        await query.edit_message_text(t(chat_id,"ok").format(r["name"]))
 
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(t(update.effective_chat.id,"city"))
         return
-    town = " ".join(context.args)
-    res = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1", timeout=10).json()
+    town=" ".join(context.args)
+    res=requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",timeout=10).json()
     if not res.get("results"):
         await update.message.reply_text(t(update.effective_chat.id,"notfound"))
         return
-    r = res["results"][0]
-    chat_id = update.effective_chat.id
-    chat_info[chat_id].update({"nombre": r["name"],"lat": r["latitude"],"lon": r["longitude"]})
+    r=res["results"][0]
+    chat_id=update.effective_chat.id
+    chat_info[chat_id].update({"nombre":r["name"],"lat":r["latitude"],"lon":r["longitude"]})
     save_users()
     await update.message.reply_text(f"✅ {r['name']} guardado")
 
 # ====================== MAIN ======================
 def main():
     load_users()
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("ciudad", ciudad))
+    app=ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start",start))
+    app.add_handler(CommandHandler("ciudad",ciudad))
     app.add_handler(CallbackQueryHandler(buttons))
-    print("🤖 MeteoAlpujarra PRO MAX funcionando")
+    print("🤖 MeteoAlpujarra PRO funcionando")
     app.run_polling()
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
