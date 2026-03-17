@@ -11,13 +11,14 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
+
+# ================= CONFIGURACIÓN ==================
 REAL_TIME = True  # True = cada 5 min | False = diaria 08:00 y 20:00
 
 chat_info = {}
 town_coords = {}
 logging.basicConfig(level=logging.INFO)
 
-# ====================== PUEBLOS PRINCIPALES ======================
 TOWNS = [
     "Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez",
     "Soportújar", "Cáñar", "Carataunas", "Pórtugos", "Busquístar", "Atalbéitar",
@@ -25,7 +26,6 @@ TOWNS = [
     "Bérchules", "Almegíjar", "Cádiar", "Polopos", "Turón", "Válor", "Yegen"
 ]
 
-# ====================== TEXTOS ======================
 TEXTS = {
     "es": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","city":"Escribe /ciudad Nombre","morning":"☀️ Mañana","afternoon":"🌇 Tarde","uv_low":"UV bajo 🌤️","uv_medium":"UV medio ☀️","uv_high":"UV alto 🧴","advice_hot":"Hace calor 😎, ropa ligera y bebe agua","advice_cold":"Hace frío 🧥, abrígate bien","advice_rain":"Llueve 🌧️, lleva paraguas/impermeable"},
     "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Choose your village:","ok":"✅ Activated for {}","city":"Type /city Name","morning":"☀️ Morning","afternoon":"🌇 Afternoon","uv_low":"Low UV 🌤️","uv_medium":"Medium UV ☀️","uv_high":"High UV 🧴","advice_hot":"Hot 😎, light clothes and drink water","advice_cold":"Cold 🧥, dress warmly","advice_rain":"Rain 🌧️, take umbrella/raincoat"},
@@ -38,7 +38,7 @@ def t(chat_id,key):
     lang = chat_info.get(chat_id,{}).get("lang","es")
     return TEXTS.get(lang,TEXTS["es"]).get(key,"")
 
-# ====================== PRECARGA COORDENADAS ======================
+# ================= COORDENADAS ==================
 def preload_town_coords():
     for town in TOWNS:
         try:
@@ -54,7 +54,7 @@ def preload_town_coords():
         except:
             town_coords[town]=(None,None)
 
-# ====================== METEO ======================
+# ================= METEO ==================
 def meteo(lat, lon):
     if lat is None or lon is None:
         return {}
@@ -73,7 +73,7 @@ def wind_scale(kmh):
 def thermal_feel(temp, wind):
     if temp is None or wind is None:
         return ""
-    feel = temp - sqrt(wind)/3  # aproximación simple
+    feel = temp - sqrt(wind)/3
     return f"🌡️ Sensación térmica: {round(feel)}°C"
 
 def uv_desc(uv,chat_id):
@@ -83,7 +83,7 @@ def clothing_advice(temp,rain,chat_id):
     if rain>0: return t(chat_id,"advice_rain")
     return t(chat_id,"advice_hot") if temp>=28 else t(chat_id,"advice_cold") if temp<=15 else ""
 
-# ====================== UI ======================
+# ================= UI ==================
 def kb_lang():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🇪🇸 Español",callback_data="lang_es"), InlineKeyboardButton("🇬🇧 English",callback_data="lang_en")],
@@ -129,7 +129,7 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id,msg)
 
-# ====================== HANDLERS ======================
+# ================= HANDLERS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TEXTS["es"]["welcome"],reply_markup=kb_lang())
 
@@ -172,7 +172,7 @@ async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_users()
     await update.message.reply_text(f"✅ {town} guardado")
 
-# ====================== DB ======================
+# ================= DB ==================
 def load_users():
     global chat_info
     try:
@@ -186,7 +186,7 @@ def save_users():
     with open(DB_FILE,"w",encoding="utf-8") as f:
         json.dump({str(k):v for k,v in chat_info.items()},f,ensure_ascii=False,indent=2)
 
-# ====================== MAIN ======================
+# ================= MAIN ==================
 def main():
     print("⏳ Cargando coordenadas de pueblos...")
     preload_town_coords()
