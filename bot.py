@@ -1,8 +1,9 @@
 import os
 import json
 import logging
-from datetime import time, datetime
+from datetime import datetime, time, timedelta
 import requests
+import pytz
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -14,7 +15,7 @@ from telegram.ext import (
 
 TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
-TEST_MODE = True
+REAL_TIME = True  # 🔹 True = cada 5 min, False = 08:00 y 20:00
 
 chat_info = {}
 
@@ -52,7 +53,7 @@ def meteo(lat, lon):
         f"?latitude={lat}&longitude={lon}"
         f"&current=temperature_2m,weathercode,wind_speed_10m"
         f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-        f"&timezone=auto"
+        f"&timezone=Europe/Madrid"
     )
     try:
         return requests.get(url, timeout=10).json()
@@ -92,8 +93,11 @@ def kb_lang():
     ])
 
 def kb_towns():
-    rows = [[InlineKeyboardButton(t, callback_data=f"town_{t}")] for t in TOWNS]
-    rows.append([InlineKeyboardButton("🌍 Otro", callback_data="otros")])
+    # Crear filas de 3 columnas
+    rows = []
+    for i in range(0, len(TOWNS), 3):
+        row = [InlineKeyboardButton(t, callback_data=f"town_{t}") for t in TOWNS[i:i+3]]
+        rows.append(row)
     return InlineKeyboardMarkup(rows)
 
 # ====================== JOBS ======================
@@ -106,7 +110,6 @@ def remove_jobs(app, chat_id):
 
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
-
     if chat_id not in chat_info:
         return
 
@@ -135,7 +138,7 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
             f"⬇️ {daily['temperature_2m_min'][1]}°C\n"
             f"🌧️ {daily['precipitation_probability_max'][1]}%\n\n"
 
-            f"🕒 {datetime.now().strftime('%H:%M')}"
+            f"🕒 {datetime.now(pytz.timezone('Europe/Madrid')).strftime('%H:%M')}"
         )
     except:
         msg = "❌ Error obteniendo datos"
@@ -185,18 +188,32 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         remove_jobs(context.application, chat_id)
 
-        context.application.job_queue.run_repeating(
-            send_weather,
-            interval=300 if TEST_MODE else 43200,
-            first=5,
-            name=f"weather_{chat_id}",
-            data={"chat_id": chat_id}
-        )
+        if REAL_TIME:
+            # 🔹 cada 5 min
+            context.application.job_queue.run_repeating(
+                send_weather,
+                interval=300,
+                first=5,
+                name=f"weather_{chat_id}",
+                data={"chat_id": chat_id}
+            )
+        else:
+            # 🔹 08:00 y 20:00
+            tz = pytz.timezone('Europe/Madrid')
+            context.application.job_queue.run_daily(
+                send_weather,
+                time(8, 0, tzinfo=tz),
+                name=f"weather_m_{chat_id}",
+                data={"chat_id": chat_id}
+            )
+            context.application.job_queue.run_daily(
+                send_weather,
+                time(20, 0, tzinfo=tz),
+                name=f"weather_e_{chat_id}",
+                data={"chat_id": chat_id}
+            )
 
         await query.edit_message_text(f"✅ Activado para {r['name']}")
-
-    elif data == "otros":
-        await query.edit_message_text("Escribe /ciudad Nombre")
 
 # ====================== COMANDOS ======================
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
