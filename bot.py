@@ -17,42 +17,42 @@ chat_info = {}
 town_coords = {}
 logging.basicConfig(level=logging.INFO)
 
-# ====================== PUEBLOS ======================
+# ====================== PUEBLOS PRINCIPALES ======================
 TOWNS = [
     "Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez",
-    "Soportújar", "Cáñar", "Carataunas", "Pórtugos",
-    "Busquístar", "Atalbéitar", "Pitres", "Mecina", "Fondales",
-    "Ferreirola", "Capilerilla", "Mecinilla",
-    "Las Barreras", "Bayacas", "Los Tablones",
-    "Bérchules", "Almegíjar", "Cádiar", "Polopos", "Turón",
-    "Válor", "Yegen"
+    "Soportújar", "Cáñar", "Carataunas", "Pórtugos", "Busquístar", "Atalbéitar",
+    "Pitres", "Mecina", "Fondales", "Ferreirola", "Capilerilla", "Mecinilla",
+    "Bérchules", "Almegíjar", "Cádiar", "Polopos", "Turón", "Válor", "Yegen"
 ]
 
 # ====================== TEXTOS ======================
 TEXTS = {
-    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","city":"Escribe /ciudad Nombre","notfound":"❌ No encontrado","morning":"☀️ Mañana","afternoon":"🌇 Tarde","uv_low":"UV bajo 🌤️","uv_medium":"UV medio ☀️","uv_high":"UV alto 🧴","advice_hot":"Hace calor 😎, ropa ligera y bebe agua","advice_cold":"Hace frío 🧥, abrígate bien","advice_rain":"Llueve 🌧️, lleva paraguas/impermeable"},
-    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Choose your village:","ok":"✅ Activated for {}","city":"Type /city Name","notfound":"❌ Not found","morning":"☀️ Morning","afternoon":"🌇 Afternoon","uv_low":"Low UV 🌤️","uv_medium":"Medium UV ☀️","uv_high":"High UV 🧴","advice_hot":"Hot 😎, light clothes and drink water","advice_cold":"Cold 🧥, dress warmly","advice_rain":"Rain 🌧️, take umbrella/raincoat"},
-    "de": {"select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","city":"Schreibe /stadt Name","notfound":"❌ Nicht gefunden","morning":"☀️ Morgen","afternoon":"🌇 Nachmittag","uv_low":"UV niedrig 🌤️","uv_medium":"UV mittel ☀️","uv_high":"UV hoch 🧴","advice_hot":"Heiß 😎, leichte Kleidung","advice_cold":"Kalt 🧥, warm anziehen","advice_rain":"Regen 🌧️, Regenschirm mitnehmen"},
-    "nl": {"select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","city":"Typ /stad Naam","notfound":"❌ Niet gevonden","morning":"☀️ Ochtend","afternoon":"🌇 Middag","uv_low":"UV laag 🌤️","uv_medium":"UV middel ☀️","uv_high":"UV hoog 🧴","advice_hot":"Warm 😎, lichte kleding","advice_cold":"Koud 🧥, warm aankleden","advice_rain":"Regen 🌧️, neem paraplu/regenkleding"},
-    "fr": {"select":"Choisissez votre village:","ok":"✅ Activé pour {}","city":"Écris /ville Nom","notfound":"❌ Introuvable","morning":"☀️ Matin","afternoon":"🌇 Après-midi","uv_low":"UV faible 🌤️","uv_medium":"UV moyen ☀️","uv_high":"UV élevé 🧴","advice_hot":"Chaud 😎, vêtements légers","advice_cold":"Froid 🧥, habillez-vous chaudement","advice_rain":"Pluie 🌧️, prenez parapluie/imperméable"}
+    "es": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Elige tu pueblo:","ok":"✅ Activado para {}","city":"Escribe /ciudad Nombre","morning":"☀️ Mañana","afternoon":"🌇 Tarde","uv_low":"UV bajo 🌤️","uv_medium":"UV medio ☀️","uv_high":"UV alto 🧴","advice_hot":"Hace calor 😎, ropa ligera y bebe agua","advice_cold":"Hace frío 🧥, abrígate bien","advice_rain":"Llueve 🌧️, lleva paraguas/impermeable"},
+    "en": {"welcome":"🌦️ MeteoAlpujarra\nSelect language / Selecciona idioma","select":"Choose your village:","ok":"✅ Activated for {}","city":"Type /city Name","morning":"☀️ Morning","afternoon":"🌇 Afternoon","uv_low":"Low UV 🌤️","uv_medium":"Medium UV ☀️","uv_high":"High UV 🧴","advice_hot":"Hot 😎, light clothes and drink water","advice_cold":"Cold 🧥, dress warmly","advice_rain":"Rain 🌧️, take umbrella/raincoat"},
+    "de": {"select":"Wähle dein Dorf:","ok":"✅ Aktiviert für {}","city":"Schreibe /stadt Name","morning":"☀️ Morgen","afternoon":"🌇 Nachmittag","uv_low":"UV niedrig 🌤️","uv_medium":"UV mittel ☀️","uv_high":"UV hoch 🧴","advice_hot":"Heiß 😎, leichte Kleidung","advice_cold":"Kalt 🧥, warm anziehen","advice_rain":"Regen 🌧️, Regenschirm mitnehmen"},
+    "nl": {"select":"Kies je dorp:","ok":"✅ Geactiveerd voor {}","city":"Typ /stad Naam","morning":"☀️ Ochtend","afternoon":"🌇 Middag","uv_low":"UV laag 🌤️","uv_medium":"UV middel ☀️","uv_high":"UV hoog 🧴","advice_hot":"Warm 😎, lichte kleding","advice_cold":"Koud 🧥, warm aankleden","advice_rain":"Regen 🌧️, neem paraplu/regenkleding"},
+    "fr": {"select":"Choisissez votre village:","ok":"✅ Activé pour {}","city":"Écris /ville Nom","morning":"☀️ Matin","afternoon":"🌇 Après-midi","uv_low":"UV faible 🌤️","uv_medium":"UV moyen ☀️","uv_high":"UV élevé 🧴","advice_hot":"Chaud 😎, vêtements légers","advice_cold":"Froid 🧥, habillez-vous chaudement","advice_rain":"Pluie 🌧️, prenez parapluie/imperméable"}
 }
 
 def t(chat_id,key):
     lang = chat_info.get(chat_id,{}).get("lang","es")
     return TEXTS.get(lang,TEXTS["es"]).get(key,"")
 
-# ====================== PRELOAD COORDS ======================
+# ====================== PRECARGA COORDENADAS ======================
 def preload_town_coords():
     for town in TOWNS:
         try:
-            res = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",timeout=10).json()
+            res = requests.get(
+                f"https://geocoding-api.open-meteo.com/v1/search?name={town}&count=1",
+                timeout=10
+            ).json()
             if res.get("results"):
-                r = res["results"][0]
-                town_coords[town] = (r["latitude"], r["longitude"])
+                r=res["results"][0]
+                town_coords[town]=(r["latitude"],r["longitude"])
             else:
-                town_coords[town] = (None,None)
+                town_coords[town]=(None,None)
         except:
-            town_coords[town] = (None,None)
+            town_coords[town]=(None,None)
 
 # ====================== METEO ======================
 def meteo(lat, lon):
@@ -64,55 +64,21 @@ def meteo(lat, lon):
     except:
         return {}
 
-def nearest_town_with_data(lat, lon):
-    dist_list = []
-    for town, coords in town_coords.items():
-        tlat, tlon = coords
-        if tlat is not None:
-            dist = haversine(lat, lon, tlat, tlon)
-            dist_list.append((dist,town))
-    dist_list.sort(key=lambda x:x[0])
-    for _,tn in dist_list:
-        daily = meteo(*town_coords[tn]).get("daily",{})
-        if daily.get("temperature_2m_max"):
-            return tn
-    return None
-
-def haversine(lat1, lon1, lat2, lon2):
-    lat1,lon1,lat2,lon2 = map(radians,[lat1,lon1,lat2,lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
-    c = 2*asin(sqrt(a))
-    return 6371*c
-
 def wind_scale(kmh):
-    if kmh is None: return "?"
-    return f"{min(10,round(kmh/6))}/10"
+    return f"{min(10,round(kmh/6))}/10" if kmh is not None else "?"
 
 def uv_desc(uv,chat_id):
-    if uv < 3: return t(chat_id,"uv_low")
-    elif uv < 6: return t(chat_id,"uv_medium")
-    else: return t(chat_id,"uv_high")
+    return t(chat_id,"uv_low") if uv<3 else t(chat_id,"uv_medium") if uv<6 else t(chat_id,"uv_high")
 
 def clothing_advice(temp,rain,chat_id):
-    if rain > 0: return t(chat_id,"advice_rain")
-    if temp >= 28: return t(chat_id,"advice_hot")
-    if temp <= 15: return t(chat_id,"advice_cold")
-    return ""
+    if rain>0: return t(chat_id,"advice_rain")
+    return t(chat_id,"advice_hot") if temp>=28 else t(chat_id,"advice_cold") if temp<=15 else ""
 
 # ====================== UI ======================
 def kb_lang():
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🇪🇸 Español",callback_data="lang_es"),
-            InlineKeyboardButton("🇬🇧 English",callback_data="lang_en")
-        ],
-        [
-            InlineKeyboardButton("🇩🇪 Deutsch",callback_data="lang_de"),
-            InlineKeyboardButton("🇳🇱 Nederlands",callback_data="lang_nl"),
-            InlineKeyboardButton("🇫🇷 Français",callback_data="lang_fr")
-        ]
+        [InlineKeyboardButton("🇪🇸 Español",callback_data="lang_es"), InlineKeyboardButton("🇬🇧 English",callback_data="lang_en")],
+        [InlineKeyboardButton("🇩🇪 Deutsch",callback_data="lang_de"), InlineKeyboardButton("🇳🇱 Nederlands",callback_data="lang_nl"), InlineKeyboardButton("🇫🇷 Français",callback_data="lang_fr")]
     ])
 
 def kb_towns():
@@ -133,12 +99,7 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     info=chat_info[chat_id]
     data=meteo(info["lat"],info["lon"])
     daily=data.get("daily",{})
-    if not daily.get("temperature_2m_max"):
-        town=nearest_town_with_data(info["lat"], info["lon"])
-        if town:
-            chat_info[chat_id].update({"nombre":town,"lat":town_coords[town][0],"lon":town_coords[town][1]})
-            data=meteo(chat_info[chat_id]["lat"],chat_info[chat_id]["lon"])
-            daily=data.get("daily",{})
+    if not daily.get("temperature_2m_max"): return
     max_temp = daily.get("temperature_2m_max",[0])[0]
     min_temp = daily.get("temperature_2m_min",[0])[0]
     rain = daily.get("precipitation_probability_max",[0])[0]
@@ -193,6 +154,7 @@ async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_users()
     await update.message.reply_text(f"✅ {town} guardado")
 
+# ====================== DB ======================
 def load_users():
     global chat_info
     try:
@@ -204,7 +166,7 @@ def load_users():
 
 def save_users():
     with open(DB_FILE,"w",encoding="utf-8") as f:
-        json.dump({str(k):v for k,v in chat_info.items()},f,indent=2)
+        json.dump({str(k):v for k,v in chat_info.items()},f,ensure_ascii=False,indent=2)
 
 # ====================== MAIN ======================
 def main():
