@@ -13,14 +13,15 @@ TOKEN = os.getenv("TOKEN")
 DB_FILE = "users.json"
 
 # ================= CONFIGURACIÓN ==================
-TEST_MODE = True          # Cambia a False para modo real (07:57 y 19:57)
+TEST_MODE = True          # ← Cambia a False cuando quieras horario real
 
 chat_info = {}
 town_coords = {}
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
 )
 
 TOWNS = [
@@ -45,7 +46,7 @@ TEXTS = {
         "advice_cold": "Hace frío 🧥, abrígate bien",
         "advice_rain": "Llueve 🌧️, lleva paraguas/impermeable"
     },
-    # Añade otros idiomas si los necesitas
+    # puedes añadir otros idiomas aquí si los usas
 }
 
 def t(chat_id, key):
@@ -63,23 +64,29 @@ def preload_town_coords():
             if res.get("results"):
                 r = res["results"][0]
                 town_coords[town] = (r["latitude"], r["longitude"])
-                logging.info(f"Coordenadas cargadas: {town} → {r['latitude']}, {r['longitude']}")
+                logging.info(f"Coordenadas → {town}: {r['latitude']}, {r['longitude']}")
             else:
                 town_coords[town] = (None, None)
-                logging.warning(f"No se encontraron coordenadas para {town}")
+                logging.warning(f"Sin coordenadas: {town}")
         except Exception as e:
             town_coords[town] = (None, None)
-            logging.error(f"Error al obtener coordenadas de {town}: {e}")
+            logging.error(f"Error geocoding {town}: {e}")
 
 # ================= METEO ==================
 def meteo(lat, lon):
     if lat is None or lon is None:
         return {}
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m&timezone=Europe/Madrid"
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}"
+        f"&current_weather=true"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m"
+        f"&timezone=Europe/Madrid"
+    )
     try:
         return requests.get(url, timeout=12).json()
     except Exception as e:
-        logging.error(f"Error API Open-Meteo: {e}")
+        logging.error(f"Error API meteo: {e}")
         return {}
 
 def wind_scale(kmh):
@@ -97,56 +104,56 @@ def uv_desc(uv, chat_id):
     if uv < 6: return t(chat_id, "uv_medium")
     return t(chat_id, "uv_high")
 
-def clothing_advice(temp, rain, chat_id):
-    if rain and rain > 30: return t(chat_id, "advice_rain")
+def clothing_advice(temp, rain_prob, chat_id):
+    if rain_prob > 30: return t(chat_id, "advice_rain")
     if temp >= 28: return t(chat_id, "advice_hot")
     if temp <= 15: return t(chat_id, "advice_cold")
     return ""
 
-# ================= ENVÍO ==================
+# ================= FUNCIÓN QUE ENVÍA EL MENSAJE ==================
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
-    chat_id = job.data["chat_id"]
+    chat_id = context.job.data["chat_id"]
 
     if chat_id not in chat_info:
-        logging.info(f"Chat {chat_id} ya no está registrado")
+        logging.info(f"Chat {chat_id} ya no existe")
         return
 
     info = chat_info[chat_id]
-    lat, lon = info.get("lat"), info.get("lon")
+    lat = info.get("lat")
+    lon = info.get("lon")
 
     if not lat or not lon:
-        logging.warning(f"Coordenadas inválidas para chat {chat_id}")
+        logging.warning(f"Sin coordenadas válidas para {chat_id}")
         return
 
     data = meteo(lat, lon)
     if not data or "daily" not in data or not data["daily"].get("temperature_2m_max"):
-        logging.warning(f"No se obtuvieron datos válidos para {info.get('nombre', '?')}")
+        logging.warning(f"No datos válidos para {info.get('nombre', 'sin nombre')}")
         return
 
     daily = data["daily"]
     current = data.get("current_weather", {})
 
-    max_temp = daily["temperature_2m_max"][0]
-    min_temp = daily["temperature_2m_min"][0]
-    rain_prob = daily["precipitation_probability_max"][0]
+    max_t = daily["temperature_2m_max"][0]
+    min_t = daily["temperature_2m_min"][0]
+    rain_p = daily["precipitation_probability_max"][0]
     uv = daily["uv_index_max"][0]
     wind = daily["wind_speed_10m"][0]
-    current_temp = current.get("temperature", (min_temp + max_temp) // 2)
+    curr_t = current.get("temperature", (min_t + max_t) // 2)
 
     prefix = "🧪 PRUEBA " if TEST_MODE else ""
-    is_afternoon = not TEST_MODE and "weather_e" in job.name
-    moment = "Tarde" if is_afternoon else "Mañana"
+    is_tarde = (not TEST_MODE) and "weather_e" in context.job.name
+    momento = "Tarde" if is_tarde else "Mañana"
 
     msg = f"{prefix}📍 {info['nombre']}\n\n"
-    msg += f"🕗 {t(chat_id, moment.lower())}\n"
-    msg += f"{thermal_feel(current_temp, wind)}\n"
-    msg += f"🌡️ Actual: {current_temp}°C   Mín: {min_temp}°C   Máx: {max_temp}°C\n"
-    msg += f"🌬️ {wind_scale(wind)}   {uv_desc(uv, chat_id)}\n"
-    msg += f"{clothing_advice(max_temp, rain_prob, chat_id)}\n"
+    msg += f"🕗 {t(chat_id, momento.lower())}\n"
+    msg += f"{thermal_feel(curr_t, wind)}\n"
+    msg += f"🌡️ {curr_t}°C    Mín {min_t}°C    Máx {max_t}°C\n"
+    msg += f"🌬️ {wind_scale(wind)}    {uv_desc(uv, chat_id)}\n"
+    msg += f"{clothing_advice(max_t, rain_p, chat_id)}\n"
 
-    if is_afternoon:
-        msg += "\n(Actualización tarde)"
+    if is_tarde:
+        msg += "\n(versión tarde)"
 
     try:
         await context.bot.send_message(
@@ -154,22 +161,20 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
             text=msg,
             disable_notification=TEST_MODE
         )
-        logging.info(f"Mensaje enviado OK a {chat_id} ({info.get('nombre')})")
+        logging.info(f"✅ Mensaje enviado a {chat_id} ({info.get('nombre')})")
     except TelegramError as te:
-        logging.error(f"Error Telegram a {chat_id}: {te.message}")
+        logging.error(f"TelegramError a {chat_id}: {te.message}")
     except Exception as e:
-        logging.exception(f"Error inesperado enviando a {chat_id}")
+        logging.exception(f"Error grave enviando mensaje a {chat_id}")
 
-# ================= COMANDO DE PRUEBA ==================
+# ================= COMANDO /test ==================
 async def test_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     try:
-        await context.bot.send_message(chat_id, "🧪 Prueba manual (/test)\nSi ves esto → el bot puede enviar mensajes")
-        await update.message.reply_text("✅ Prueba enviada. ¿Te ha llegado?")
-    except TelegramError as te:
-        await update.message.reply_text(f"❌ Error Telegram: {te.message}")
+        await context.bot.send_message(chat_id, "🧪 Esto es una prueba manual con /test")
+        await update.message.reply_text("✅ Enviado. ¿Te ha llegado?")
     except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(f"❌ No pude enviar: {str(e)}")
 
 # ================= HANDLERS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -185,10 +190,11 @@ def kb_lang():
     ])
 
 def kb_towns():
-    rows = []
-    for i in range(0, len(TOWNS), 3):
-        row = [InlineKeyboardButton(t, callback_data=f"town_{t}") for t in TOWNS[i:i+3]]
-        rows.append(row)
+    rows = [[]]
+    for town in TOWNS:
+        if len(rows[-1]) == 3:
+            rows.append([])
+        rows[-1].append(InlineKeyboardButton(town, callback_data=f"town_{town}"))
     return InlineKeyboardMarkup(rows)
 
 def remove_jobs(app, chat_id):
@@ -197,7 +203,7 @@ def remove_jobs(app, chat_id):
     for job in app.job_queue.jobs():
         if str(chat_id) in job.name:
             job.schedule_removal()
-            logging.info(f"Job eliminado: {job.name}")
+            logging.info(f"Eliminado job: {job.name}")
 
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -228,24 +234,25 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tz = pytz.timezone('Europe/Madrid')
 
         if TEST_MODE:
-            # Programar cada 5 minutos
+            # Repetir cada 5 minutos
             context.application.job_queue.run_repeating(
                 send_weather,
                 interval=300,
-                first=10,
+                first=5,
                 name=f"weather_test_{chat_id}",
                 data={"chat_id": chat_id}
             )
-            # Ejecutar INMEDIATAMENTE una vez para probar
+            # Ejecutar INMEDIATAMENTE una vez (prueba rápida)
             context.application.job_queue.run_once(
                 send_weather,
-                when=0.1,  # casi inmediato
-                name=f"weather_test_immediate_{chat_id}",
+                when=0.1,
+                name=f"weather_immediate_{chat_id}",
                 data={"chat_id": chat_id}
             )
             await query.edit_message_text(
-                f"🧪 Modo PRUEBAS activado para {town}\n"
-                f"(Envío cada 5 min + mensaje de prueba inmediato)"
+                f"🧪 Modo pruebas activado para **{town}**\n"
+                "→ Mensaje de prueba en unos segundos\n"
+                "→ Luego cada ~5 minutos"
             )
         else:
             context.application.job_queue.run_daily(
@@ -256,9 +263,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 send_weather, time(19, 57, tzinfo=tz),
                 name=f"weather_e_{chat_id}", data={"chat_id": chat_id}
             )
-            await query.edit_message_text(
-                t(chat_id, "ok").format(town) + "\n(3 min antes de 8h y 20h)"
-            )
+            await query.edit_message_text(t(chat_id, "ok").format(town))
 
 async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -267,41 +272,38 @@ async def ciudad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     town = " ".join(context.args)
     lat, lon = town_coords.get(town, (None, None))
     chat_id = update.effective_chat.id
-
     if lat is None:
-        await update.message.reply_text(f"No encontramos coordenadas para '{town}'")
+        await update.message.reply_text(f"No se encontró '{town}'")
         return
-
     chat_info.setdefault(chat_id, {})["nombre"] = town
     chat_info[chat_id]["lat"] = lat
     chat_info[chat_id]["lon"] = lon
     save_users()
-    await update.message.reply_text(f"✅ {town} guardado correctamente")
+    await update.message.reply_text(f"✅ {town} guardado")
 
 # ================= DB ==================
 def load_users():
     global chat_info
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            chat_info = {int(k): v for k, v in data.items()}
-        logging.info(f"Cargados {len(chat_info)} usuarios desde {DB_FILE}")
-    except Exception:
+            chat_info = {int(k): v for k, v in json.load(f).items()}
+        logging.info(f"{len(chat_info)} usuarios cargados")
+    except:
         chat_info = {}
-        logging.info("Archivo de usuarios no encontrado → iniciando vacío")
+        logging.info("No hay archivo de usuarios → vacío")
 
 def save_users():
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump({str(k): v for k, v in chat_info.items()}, f, ensure_ascii=False, indent=2)
-        logging.info("Usuarios guardados correctamente")
+        logging.info("Usuarios guardados")
     except Exception as e:
-        logging.error(f"Error al guardar usuarios: {e}")
+        logging.error(f"Error guardando db: {e}")
 
 # ================= MAIN ==================
 def main():
     if not TOKEN:
-        print("ERROR: TOKEN no encontrado en variables de entorno")
+        print("ERROR: No hay TOKEN en las variables de entorno")
         return
 
     print("⏳ Cargando coordenadas...")
@@ -315,7 +317,7 @@ def main():
     app.add_handler(CommandHandler("test", test_send))
     app.add_handler(CallbackQueryHandler(buttons))
 
-    print("🤖 MeteoAlpujarra iniciado – mira el log")
+    print("🤖 Bot iniciado")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
