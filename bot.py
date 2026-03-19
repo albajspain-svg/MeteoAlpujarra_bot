@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID"))
 if not TOKEN or not CHAT_ID:
     raise ValueError("❌ Faltan BOT_TOKEN o CHAT_ID en Variables de Railway")
-MODO_PRUEBA = True # ← True = prueba cada 5 minutos. Cambia a False para 8:00 y 20:00 reales
+MODO_PRUEBA = False # ← True = prueba cada 5 minutos. Cambia a False para 8:00 y 20:00 reales
 
 # ====================== LOCALIDADES ======================
 COORDS = {
