@@ -1,5 +1,4 @@
 import logging
-import asyncio
 from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -11,11 +10,8 @@ from telegram.ext import (
 )
 
 import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# ────────────────────────────────────────────────
-#  Logging (muy importante para ver qué pasa en Railway)
-# ────────────────────────────────────────────────
+# Logging (muy visible en Railway)
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -23,16 +19,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ────────────────────────────────────────────────
-#  Configuración
+# Configuración
 # ────────────────────────────────────────────────
-TOKEN = "TU_BOT_TOKEN_AQUI"           # CAMBIAR
-ADMIN_CHAT_ID = "TU_CHAT_ID_AQUI"     # CAMBIAR (tu chat id)
+TOKEN = "TU_BOT_TOKEN_AQUI"           # ← CAMBIAR
+ADMIN_CHAT_ID = "TU_CHAT_ID_AQUI"     # ← CAMBIAR (tu propio chat ID)
 
-MODO_PRUEBA = True                    # False → 8:02 y 20:02 todos los días
-
-# Localidades
-PRINCIPALES = ["Órgiva", "Lanjarón", "Pampaneira", "Bubión", "Capileira", "Trevélez"]
-EXTRAS = ["Motril", "Almuñécar", "Salobreña"]
+MODO_PRUEBA = True                    # Cambia a False para 8:02 y 20:02
 
 LOCATION_MAP = {
     "Órgiva": "Orgiva",
@@ -63,37 +55,35 @@ LOCALIDADES_SELECTOR = [
     ("🇪🇸 Trevélez",     "Trevélez"),
 ]
 
-# ────────────────────────────────────────────────
-#  Estado por chat
-# ────────────────────────────────────────────────
-user_data = {}  # chat_id → {"lang": "ES", "location": "Órgiva"}
+# Estado simple (solo un usuario → ADMIN_CHAT_ID)
+user_data = {"lang": "ES", "location": "Órgiva"}  # global para simplificar
 
 TEXTOS = {
     "ES": {
         "selecciona_idioma": "Selecciona idioma / Select language",
-        "bienvenido": "¡Bienvenido! 🌤️\nPoblación: {loc}\n\n/cambiar para elegir otra",
-        "cambiar": "Elige localidad:",
-        "cambia_con": "Para cambiar población: /cambiar",
-        "error_clima": "❌ No se pudo obtener el tiempo",
-        "hora_puesta": "🌇 Puesta sol hoy",
-        "hora_salida": "🌅 Salida sol mañana",
+        "bienvenido": "¡Bienvenido! 🌤️\nPoblación actual: {loc}\n\n/cambiar → cambiar localidad",
+        "cambiar": "Elige tu localidad:",
+        "cambia_con": "Para cambiar población escribe /cambiar",
+        "error_clima": "❌ No se pudo obtener el tiempo ahora",
+        "puesta": "🌇 Puesta de sol hoy",
+        "salida": "🌅 Salida de sol mañana",
     },
     "EN": {
         "selecciona_idioma": "Select language / Selecciona idioma",
-        "bienvenido": "Welcome! 🌤️\nLocation: {loc}\n\n/cambiar to change",
-        "cambiar": "Choose location:",
+        "bienvenido": "Welcome! 🌤️\nCurrent location: {loc}\n\n/cambiar to change",
+        "cambiar": "Choose your location:",
         "cambia_con": "To change location: /cambiar",
-        "error_clima": "❌ Could not get weather",
-        "hora_puesta": "🌇 Sunset today",
-        "hora_salida": "🌅 Sunrise tomorrow",
+        "error_clima": "❌ Could not fetch weather",
+        "puesta": "🌇 Sunset today",
+        "salida": "🌅 Sunrise tomorrow",
     }
 }
 
 # ────────────────────────────────────────────────
-#  Obtener datos wttr.in
+# Obtener y formatear tiempo
 # ────────────────────────────────────────────────
-async def fetch_weather_data(location: str):
-    loc = LOCATION_MAP.get(location, "Orgiva")
+async def fetch_weather(loc_name: str):
+    loc = LOCATION_MAP.get(loc_name, "Orgiva")
     url = f"https://wttr.in/{loc}?format=j1"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -101,110 +91,106 @@ async def fetch_weather_data(location: str):
             r.raise_for_status()
             return r.json()
     except Exception as e:
-        logger.error(f"Error fetching weather for {loc}: {e}")
+        logger.error(f"Error fetching {loc}: {e}")
         return None
 
 
-def format_weather_message(data, location: str, lang: str = "ES", real_mode: bool = False):
+def format_message(data, loc_name: str, lang: str, real_mode: bool):
     if not data:
         return TEXTOS[lang]["error_clima"]
 
-    lines = [f"🌤️ **{location}**   {datetime.now().strftime('%d/%m/%Y %H:%M')}"]
+    lines = [f"🌤️ **{loc_name}**  {datetime.now().strftime('%d/%m/%Y %H:%M')}"]
 
     try:
-        curr = data["current_condition"][0] if data.get("current_condition") else data["weather"][0]["hourly"][-1]
+        curr = data.get("current_condition", [{}])[0] or data["weather"][0]["hourly"][-1]
 
         temp = curr.get("temp_C", "—")
         feels = curr.get("FeelsLikeC", "—")
         rain = curr.get("chanceofrain", "—")
         uv = curr.get("uvIndex", "—")
 
-        lines.extend([
-            f"🌡️ {temp}°C (sens. {feels}°C)",
+        lines += [
+            f"🌡️ {temp}°C  (sensación {feels}°C)",
             f"☔ {rain}%   UV {uv}",
-        ])
+        ]
 
         if data.get("weather"):
             hourly = data["weather"][0].get("hourly", [])
             if len(hourly) > 14:
-                man = hourly[8]
-                tar = hourly[14]
-                lines.extend([
-                    f"🌅 Mañ ≈ {man.get('tempC','—')}°C  ({man.get('chanceofrain','—')}% lluvia)",
-                    f"🌇 Tard ≈ {tar.get('tempC','—')}°C  ({tar.get('chanceofrain','—')}% lluvia)",
-                ])
+                ma = hourly[8]
+                ta = hourly[14]
+                lines += [
+                    f"🌅 Mañana ≈ {ma.get('tempC','—')}°C ({ma.get('chanceofrain','—')}% lluvia)",
+                    f"🌇 Tarde  ≈ {ta.get('tempC','—')}°C  ({ta.get('chanceofrain','—')}% lluvia)",
+                ]
 
             astro = data["weather"][0].get("astronomy", [{}])[0]
-            key = "hora_puesta" if real_mode else "hora_salida"
-            value = astro.get("sunset" if real_mode else "sunrise", "—")
-            lines.append(f"{TEXTOS[lang][key]}: {value}")
+            key = "puesta" if real_mode else "salida"
+            val = astro.get("sunset" if real_mode else "sunrise", "—")
+            lines.append(f"{TEXTOS[lang][key]}: {val}")
 
     except Exception as e:
         logger.error(f"Parse error: {e}")
-        lines.append("⚠️ Datos parciales o error")
+        lines.append("⚠️ Datos parciales")
 
-    lines.append("")
-    lines.append(TEXTOS[lang]["cambia_con"])
+    lines += ["", TEXTOS[lang]["cambia_con"]]
 
     return "\n".join(lines)
 
 
 # ────────────────────────────────────────────────
-#  Job programado
+# Job que envía el mensaje
 # ────────────────────────────────────────────────
-async def job_send_weather(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = ADMIN_CHAT_ID
-    if chat_id not in user_data:
-        user_data[chat_id] = {"lang": "ES", "location": "Órgiva"}
+async def send_weather_job(context: ContextTypes.DEFAULT_TYPE):
+    lang = user_data["lang"]
+    loc = user_data["location"]
 
-    loc = user_data[chat_id]["location"]
-    lang = user_data[chat_id]["lang"]
-
-    data = await fetch_weather_data(loc)
+    data = await fetch_weather(loc)
     if not data:
-        await context.bot.send_message(chat_id, TEXTOS[lang]["error_clima"])
+        await context.bot.send_message(ADMIN_CHAT_ID, TEXTOS[lang]["error_clima"])
         return
 
-    text = format_weather_message(data, loc, lang, real_mode=not MODO_PRUEBA)
-    await context.bot.send_message(chat_id, text, parse_mode="Markdown")
+    text = format_message(data, loc, lang, real_mode=not MODO_PRUEBA)
+    await context.bot.send_message(ADMIN_CHAT_ID, text, parse_mode="Markdown")
+    logger.info(f"Mensaje enviado a {ADMIN_CHAT_ID} para {loc}")
 
 
 # ────────────────────────────────────────────────
-#  Comandos
+# Handlers
 # ────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
+    kb = [
         [InlineKeyboardButton("Español 🇪🇸", callback_data="lang_ES")],
         [InlineKeyboardButton("English  🇬🇧", callback_data="lang_EN")],
     ]
     await update.message.reply_text(
         TEXTOS["ES"]["selecciona_idioma"],
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(kb)
     )
 
 
 async def callback_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     lang = query.data.split("_")[1]
+    user_data["lang"] = lang
+    loc = user_data["location"]
 
-    chat_id = query.message.chat_id
-    user_data.setdefault(chat_id, {})["lang"] = lang
-    loc = user_data[chat_id].get("location", "Órgiva")
-
-    await query.message.edit_text(TEXTOS[lang]["bienvenido"].format(loc=loc))
+    await query.edit_message_text(TEXTOS[lang]["bienvenido"].format(loc=loc))
 
 
-async def cambiar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    user_data.setdefault(chat_id, {})["lang"] = "ES"  # default si no existe
+async def cmd_cambiar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = user_data["lang"]
+    kb = []
+    for label, value in LOCALIDADES_SELECTOR:
+        kb.append([InlineKeyboardButton(label, callback_data=f"loc_{value}")])
 
-    lang = user_data[chat_id]["lang"]
-
-    kb = [[InlineKeyboardButton(txt, callback_data=f"loc_{val}")] for txt, val in LOCALIDADES_SELECTOR]
-    kb.append([InlineKeyboardButton("Motril", callback_data="loc_Motril")])
-    kb.append([InlineKeyboardButton("Almuñécar", callback_data="loc_Almuñécar")])
-    kb.append([InlineKeyboardButton("Salobreña", callback_data="loc_Salobreña")])
+    kb += [
+        [InlineKeyboardButton("Motril", callback_data="loc_Motril")],
+        [InlineKeyboardButton("Almuñécar", callback_data="loc_Almuñécar")],
+        [InlineKeyboardButton("Salobreña", callback_data="loc_Salobreña")],
+    ]
 
     await update.message.reply_text(
         TEXTOS[lang]["cambiar"],
@@ -216,45 +202,54 @@ async def callback_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    loc = query.data.split("_", 1)[1]
-    chat_id = query.message.chat_id
-    user_data.setdefault(chat_id, {})["location"] = loc
-    lang = user_data[chat_id].get("lang", "ES")
+    _, new_loc = query.data.split("_", 1)
+    user_data["location"] = new_loc
+    lang = user_data["lang"]
 
-    await query.message.edit_text(
-        f"✅ Cambiado a **{loc}**\n\n{TEXTOS[lang]['cambia_con']}",
+    await query.edit_message_text(
+        f"✅ Localidad cambiada a **{new_loc}**\n\n{TEXTOS[lang]['cambia_con']}",
         parse_mode="Markdown"
     )
 
 
 # ────────────────────────────────────────────────
-#  Inicio
+# Inicio
 # ────────────────────────────────────────────────
 def main():
     logger.info("Iniciando bot...")
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("cambiar", cambiar))
+    # Handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("cambiar", cmd_cambiar))
 
-    app.add_handler(CallbackQueryHandler(callback_lang, pattern="^lang_"))
-    app.add_handler(CallbackQueryHandler(callback_loc, pattern="^loc_"))
+    application.add_handler(CallbackQueryHandler(callback_lang, pattern=r"^lang_"))
+    application.add_handler(CallbackQueryHandler(callback_loc, pattern=r"^loc_"))
 
-    # Scheduler
-    scheduler = AsyncIOScheduler()
+    # ── JobQueue (la forma oficial y recomendada) ──
+    job_queue = application.job_queue
+
     if MODO_PRUEBA:
-        scheduler.add_job(job_send_weather, "interval", minutes=5, args=(app.context_types_context,))
+        job_queue.run_repeating(
+            callback=send_weather_job,
+            interval=300,          # 5 minutos
+            first=10               # empieza después de 10 segundos
+        )
     else:
-        scheduler.add_job(job_send_weather, "cron", hour=8, minute=2, args=(app.context_types_context,))
-        scheduler.add_job(job_send_weather, "cron", hour=20, minute=2, args=(app.context_types_context,))
+        job_queue.run_daily(
+            callback=send_weather_job,
+            time=datetime.time(hour=8, minute=2)
+        )
+        job_queue.run_daily(
+            callback=send_weather_job,
+            time=datetime.time(hour=20, minute=2)
+        )
 
-    scheduler.start()
+    logger.info(f"Bot iniciado | Modo prueba = {MODO_PRUEBA} | Jobs programados")
 
-    logger.info(f"Bot listo | Modo prueba = {MODO_PRUEBA}")
-
-    # ¡Aquí está el cambio clave para Railway!
-    app.run_polling(
+    # Ejecuta polling (bloqueante)
+    application.run_polling(
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
         poll_interval=0.5,
