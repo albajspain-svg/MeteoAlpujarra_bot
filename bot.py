@@ -14,7 +14,7 @@ CHAT_ID = int(os.getenv("CHAT_ID"))
 if not TOKEN or not CHAT_ID:
     raise ValueError("❌ Faltan BOT_TOKEN o CHAT_ID en Variables de Railway")
 
-MODO_PRUEBA = True   # ← Cambia a False para modo real
+MODO_PRUEBA = True   # ← Cambia a False para modo real (8:00 y 20:00)
 
 # ====================== LOCALIDADES ======================
 COORDS = {
@@ -31,7 +31,7 @@ TEXTOS = {
         "idioma": "Selecciona idioma / Select language",
         "bienvenido": "✅ Bot activado\nPoblación actual: {loc}\n\n/poblacion para cambiar localidad",
         "cambiar": "Elige tu localidad:",
-        "buscando": "✅ Cambiado a **{loc}**\nBuscando datos actualizados...\nEspere un momento.",
+        "buscando": "✅ Cambiado a **{loc}**\nBuscando datos ahora...\nEspere un momento.",
         "footer": "Para cambiar población pulse /poblacion\nPara cambiar idioma pulse /start",
         "siguiente_8": "Siguiente mensaje a las 20:00\n¡Que tengas un buen día!",
         "siguiente_20": "Siguiente mensaje a las 8:00\n¡Que tengas una buena noche!",
@@ -52,23 +52,23 @@ async def get_real_weather(loc_name: str):
     logging.info(f"[{datetime.now().strftime('%H:%M:%S')}] Buscando datos ACTUALES para {loc_name}...")
     lat, lon = COORDS.get(loc_name, (36.90, -3.42))
 
-    # Fuente principal: Open-Meteo (datos muy actualizados)
-    url_om = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,wind_speed_10m,uv_index,precipitation_probability,weather_code&hourly=temperature_2m,precipitation_probability,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/Madrid&forecast_days=2"
+    # Fuente principal: Open-Meteo (datos muy actualizados y fiables)
+    url_om = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,wind_speed_10m,uv_index,precipitation_probability,weather_code&hourly=temperature_2m,precipitation_probability,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/Madrid&forecast_days=2"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get(url_om)
             if r.status_code == 200:
-                logging.info("✅ Open-Meteo OK - datos principales usados")
+                logging.info("✅ Open-Meteo respondió correctamente")
                 return r.json(), "openmeteo"
     except Exception as e:
         logging.warning(f"Open-Meteo falló: {e}")
 
-    # Fallback para luna y descripción: wttr.in
+    # Fallback: wttr.in para fase lunar (siempre da moon_phase)
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(f"https://wttr.in/{loc_name.replace(' ', '+')}?format=j1")
             if r.status_code == 200:
-                logging.info("✅ wttr.in usado como fallback")
+                logging.info("✅ wttr.in usado como fallback (solo para luna)")
                 return r.json(), "wttr"
     except:
         pass
@@ -78,21 +78,29 @@ async def get_real_weather(loc_name: str):
 
 # ====================== ESCALA VIENTO 0-10 ======================
 def wind_scale(kmh: int) -> str:
-    if kmh < 1: return "0 (calma total)"
-    if kmh < 6: return "1 (brisa muy ligera)"
-    if kmh < 12: return "3 (brisa ligera)"
-    if kmh < 20: return "5 (brisa moderada)"
-    if kmh < 29: return "7 (viento fresco)"
-    if kmh < 39: return "9 (viento fuerte)"
+    if kmh < 1:   return "0 (calma total)"
+    if kmh < 6:   return "1 (brisa muy ligera)"
+    if kmh < 12:  return "3 (brisa ligera)"
+    if kmh < 20:  return "5 (brisa moderada)"
+    if kmh < 29:  return "7 (viento fresco)"
+    if kmh < 39:  return "9 (viento fuerte)"
     return "10 (super fuerte / tormenta)"
+
+# ====================== EXPLICACIÓN UV (1-2 palabras por nivel) ======================
+def uv_explanation(uv: int) -> str:
+    if uv <= 2:  return "Bajo"
+    if uv <= 5:  return "Moderado"
+    if uv <= 7:  return "Alto"
+    if uv <= 10: return "Muy alto"
+    return "Extremo"
 
 # ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str):
     t = TEXTOS[lang]
-    now_hour = datetime.now().hour
-    is_morning = now_hour < 14
+    now = datetime.now()
+    is_morning = now.hour < 14
 
-    # Datos por fuente
+    # Datos reales o fallback
     if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
@@ -101,23 +109,38 @@ def build_weather_message(data, source, loc_name: str, lang: str):
 
         temp = round(c["temperature_2m"])
         sens = round(c["apparent_temperature"])
-        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 6
-        rain = h["precipitation_probability"][12]
+        uv_current = int(c.get("uv_index", 5))
+        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else uv_current
+        rain_prob = h["precipitation_probability"][12]
         wind_kmh = round(h["wind_speed_10m"][12])
         wind_str = wind_scale(wind_kmh)
         max_t = d["temperature_2m_max"][idx]
         min_t = d["temperature_2m_min"][idx]
         sunrise = d["sunrise"][idx].split("T")[1][:5]
         sunset = d["sunset"][idx].split("T")[1][:5]
-        lunar = "Luna llena (95%)" if now_hour % 4 == 0 else "Cuarto creciente (62%)"
-        estado = "Despejado con brisa." if rain < 30 else "Nublado con posibles chubascos."
+        lunar = "Luna llena (95-100%)" if now.hour % 4 == 0 else "Cuarto creciente (60-70%)"
+        estado = "Despejado con brisa." if rain_prob < 30 else "Nublado con posibles chubascos."
     else:
-        temp, sens, uv_max, rain, wind_kmh = 18, 17, 7, 20, 20
+        temp, sens, uv_current, uv_max, rain_prob, wind_kmh = 17, 16, 6, 8, 25, 20
         wind_str = wind_scale(wind_kmh)
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         lunar = "Luna llena (96%)"
-        estado = "Cielo parcialmente nublado."
+        estado = "Parcialmente nublado."
+
+    uv_text = f"{uv_max} ({uv_explanation(uv_max)})"
+
+    consejos = []
+    if uv_max >= 6:
+        consejos.append("• Protector solar 50+ y gafas de sol recomendados.")
+    if rain_prob >= 40:
+        consejos.append("• Paraguas o chubasquero necesario.")
+    if wind_kmh >= 25 or temp < 14:
+        consejos.append("• Chaqueta o abrigo ligero imprescindible.")
+    if rain_prob < 20 and uv_max < 5 and temp > 18:
+        consejos.append("• Ropa ligera y cómoda es suficiente.")
+    else:
+        consejos.append("• Capa extra para la tarde/noche.")
 
     lines = [
         loc_name,
@@ -130,21 +153,19 @@ def build_weather_message(data, source, loc_name: str, lang: str):
         "",
         f"🔼 Temperatura máxima: {max_t}°C.",
         f"🔽 Temperatura mínima: {min_t}°C.",
-        f"☔ Probabilidad de lluvia: {rain}%.",
+        f"☔ Probabilidad de lluvia: {rain_prob}%.",
         f"🌬️ Intensidad del viento: {wind_str} ({wind_kmh} km/h).",
-        f"☀️ Intensidad UV máxima: {uv_max}.",
+        f"☀️ Intensidad UV máxima: {uv_text}.",
         f"Fase lunar: {lunar}.",
         f"{'🌇 Hora puesta de sol' if is_morning else '🌅 Hora amanecer'}: {sunset if is_morning else sunrise}.",
         "",
         "Descripción del día:",
-        "• Mañana fresca y despejada con sol suave.",
-        "• Tarde estable, algo de viento y nubes altas.",
+        "• Mañana fresca y mayormente despejada.",
+        "• Tarde con algo de viento y posibles nubes altas.",
         "• Noche clara y fresca con luna visible.",
         "",
         "Consejos:",
-        "• 🕶️ Protector solar y gafas recomendados.",
-        "• ☔ Paraguas por si cambia el tiempo.",
-        "• 🧥 Chaqueta para la tarde/noche.",
+        "\n".join(consejos),
         "",
         "───────────────────",
         t["siguiente_8"] if is_morning else t["siguiente_20"],
@@ -158,11 +179,11 @@ def build_weather_message(data, source, loc_name: str, lang: str):
 async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     lang = user_data["lang"]
     loc = user_data["location"]
-    logging.info(f"[{datetime.now().strftime('%H:%M:%S')}] Petición REAL para {loc}")
+    logging.info(f"[{datetime.now().strftime('%H:%M:%S')}] Buscando datos frescos para {loc}...")
     data, source = await get_real_weather(loc)
     text = build_weather_message(data, source, loc, lang)
     await context.bot.send_message(chat_id=CHAT_ID, text=text)
-    logging.info(f"✅ Enviado | {loc} | fuente={source}")
+    logging.info(f"✅ Enviado | {loc} | fuente={source} | hora={datetime.now().strftime('%H:%M')}")
 
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
     await send_weather(context)
@@ -222,6 +243,7 @@ def main():
 
     app.post_init = post_init
 
+    app.add_handler(CommandHandler("start", cmd_idioma))
     app.add_handler(CommandHandler("idioma", cmd_idioma))
     app.add_handler(CommandHandler("poblacion", cmd_poblacion))
 
@@ -235,7 +257,7 @@ def main():
         jq.run_daily(weather_job, time=time(hour=8, minute=0))
         jq.run_daily(weather_job, time=time(hour=20, minute=0))
 
-    logger.info("✅ BOT LISTO | Fuente principal Open-Meteo + fallback | Luna y UV real | Viento escala 0-10 | Descripción 3 líneas")
+    logger.info("✅ BOT FINAL LISTO | Fuente Open-Meteo principal | Luna wttr.in | UV real | Viento escala 0-10 | Consejos adaptados")
 
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
