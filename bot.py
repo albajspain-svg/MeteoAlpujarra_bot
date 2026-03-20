@@ -3,6 +3,7 @@ import os
 import sqlite3
 import time as time_module
 from datetime import datetime, time as dt_time
+import asyncio
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -83,7 +84,7 @@ COORDS = {
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
 PUEBLOS_ALFA = ["BAYACAS", "BUBIÓN", "CAPILEIRA", "EL MORREÓN", "LANJARÓN", "LAS BARRERAS", "LOS TABLONES", "ÓRGIVA", "PAMPANEIRA", "TREVÉLEZ", "UGÍJAR", "YEGEN"]
 
-# ====================== TEXTOS COMPLETOS (TODOS LOS IDIOMAS) ======================
+# ====================== TEXTOS COMPLETOS ======================
 TEXTOS = {
     "ES": {
         "idioma_cmd": "/idioma", "poblacion_cmd": "/poblacion",
@@ -599,7 +600,7 @@ async def get_real_weather(loc_name: str):
     except: pass
     return None, "fallback", None, 60
 
-# ====================== MENSAJE FINAL (con el comando /actualizar) ======================
+# ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
     now = datetime.now()
@@ -681,7 +682,6 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             wind_kmh=round(d["wind_speed_10m_max"][day_idx])
         ))
 
-    # ← AQUÍ ESTÁ LA LÍNEA QUE PEDISTE
     lines.extend([
         "",
         t["info_envios"],
@@ -763,16 +763,19 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_user_weather(context, user_id)
 
 # ====================== MAIN ======================
+async def post_init(application):
+    try:
+        await application.bot.delete_webhook(drop_pending_updates=True)
+        logging.info("Webhook borrado correctamente")
+        await asyncio.sleep(3)  # Espera para evitar conflicto 409
+    except Exception as e:
+        logging.warning(f"Error al borrar webhook: {e}")
+
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     init_db()
 
     app = ApplicationBuilder().token(TOKEN).build()
-
-    async def post_init(application):
-        await application.bot.delete_webhook(drop_pending_updates=True)
-        logging.info("Webhook borrado correctamente")
-
     app.post_init = post_init
 
     app.add_handler(CommandHandler(["start", "idioma", "language"], cmd_idioma))
@@ -790,7 +793,7 @@ def main():
 
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Comando /actualizar al final de cada mensaje")
+    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | /actualizar al final | Anti-409 mejorado")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
