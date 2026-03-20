@@ -11,7 +11,7 @@ CHAT_ID = int(os.getenv("CHAT_ID"))
 if not TOKEN or not CHAT_ID:
     raise ValueError("❌ Faltan BOT_TOKEN o CHAT_ID en Variables de Railway")
 
-MODO_PRUEBA = False  # ← False = 8:00 y 20:00 reales
+MODO_PRUEBA = False  # ← Cambia a True solo para pruebas rápidas
 
 # ====================== LOCALIDADES ======================
 COORDS = {
@@ -23,7 +23,7 @@ COORDS = {
 }
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
 
-# ====================== TEXTOS COMPLETOS (todos los idiomas) ======================
+# ====================== TEXTOS COMPLETOS ======================
 TEXTOS = {
     "ES": {
         "idioma_cmd": "/idioma", "poblacion_cmd": "/poblacion",
@@ -452,12 +452,11 @@ def wind_description(kmh: int, lang: str) -> str:
 # ====================== UV CON EMOJI ======================
 def uv_explanation(uv: int, lang: str) -> str:
     t = TEXTOS[lang]
-    if uv <= 2: emoji, text = "⚪", t["uv_bajo"]
-    elif uv <= 5: emoji, text = "🟢", t["uv_moderado"]
-    elif uv <= 7: emoji, text = "🟡", t["uv_alto"]
-    elif uv <= 10: emoji, text = "🟠", t["uv_muy_alto"]
-    else: emoji, text = "🔴", t["uv_extremo"]
-    return f"{uv} {emoji} {text}"
+    if uv <= 2: return f"{uv} ⚪ {t['uv_bajo']}"
+    if uv <= 5: return f"{uv} 🟢 {t['uv_moderado']}"
+    if uv <= 7: return f"{uv} 🟡 {t['uv_alto']}"
+    if uv <= 10: return f"{uv} 🟠 {t['uv_muy_alto']}"
+    return f"{uv} 🔴 {t['uv_extremo']}"
 
 # ====================== DESCRIPCIÓN Y CONSEJOS ======================
 def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
@@ -494,7 +493,7 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
         cons.append(t["consejo_mountain"])
     return cons
 
-# ====================== OBTENER DATOS (con humedad y mar) ======================
+# ====================== OBTENER DATOS (URL CORREGIDA + HUMEDAD) ======================
 async def get_real_weather(loc_name: str):
     logging.info(f"[{datetime.now().strftime('%H:%M:%S')}] Buscando datos para {loc_name}...")
     if loc_name in ["LOS TABLONES", "EL MORREÓN", "LAS BARRERAS", "BAYACAS"]:
@@ -511,7 +510,7 @@ async def get_real_weather(loc_name: str):
                     sea_temp = round(r.json()["daily"]["sea_surface_temperature_max"][0])
         except: pass
 
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,uv_index,precipitation_probability&hourly=...&daily=...&timezone=Europe/Madrid&forecast_days=2"
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,uv_index,precipitation_probability&hourly=temperature_2m,precipitation_probability,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/Madrid&forecast_days=2"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get(url)
@@ -519,6 +518,14 @@ async def get_real_weather(loc_name: str):
                 data = r.json()
                 humidity = data["current"].get("relative_humidity_2m", 60)
                 return data, "openmeteo", sea_temp, humidity
+    except Exception as e:
+        logging.warning(f"Open-Meteo falló: {e}")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"https://wttr.in/{loc_name.replace(' ', '+')}?format=j1")
+            if r.status_code == 200:
+                return r.json(), "wttr", None, 60
     except: pass
     return None, "fallback", None, 60
 
@@ -653,6 +660,7 @@ def main():
 
     async def post_init(application):
         await application.bot.delete_webhook(drop_pending_updates=True)
+        logging.info("Webhook borrado correctamente")
 
     app.post_init = post_init
 
@@ -669,10 +677,10 @@ def main():
         jq.run_daily(weather_job, time=time(hour=8, minute=0))
         jq.run_daily(weather_job, time=time(hour=20, minute=0))
 
-    # Keep-alive
+    # Keep-alive (imprescindible en Railway)
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT FINAL LISTO | Humedad + Footer dinámico + Keep-alive")
+    logging.info("✅ BOT INICIADO | Open-Meteo corregido | Humedad + Footer dinámico + Keep-alive")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
