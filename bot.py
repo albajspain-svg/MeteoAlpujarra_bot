@@ -19,7 +19,7 @@ DB_PATH = "users.db"
 # ====================== CACHÉ ANTI-429 ======================
 weather_cache = {}
 
-# ====================== BBDD ======================
+# ====================== BBDD USUARIOS ======================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('''
@@ -51,9 +51,15 @@ def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
     cur = conn.cursor()
     sets = []
     params = []
-    if lang is not None: sets.append("lang=?"); params.append(lang)
-    if location is not None: sets.append("location=?"); params.append(location)
-    if chat_id is not None: sets.append("chat_id=?"); params.append(chat_id)
+    if lang is not None:
+        sets.append("lang=?")
+        params.append(lang)
+    if location is not None:
+        sets.append("location=?")
+        params.append(location)
+    if chat_id is not None:
+        sets.append("chat_id=?")
+        params.append(chat_id)
     if sets:
         query = f"UPDATE users SET {', '.join(sets)} WHERE user_id=?"
         params.append(user_id)
@@ -502,8 +508,62 @@ TEXTOS = {
 }
 
 # ====================== FUNCIONES AUXILIARES ======================
-# (get_lunar_phase, wind_description, uv_explanation, get_day_description, get_consejos)
-# Copiadas exactamente igual que en la versión anterior (no las repito aquí para no alargar, pero están en el código que ya tenías)
+def get_lunar_phase(now: datetime, lang: str) -> str:
+    t = TEXTOS[lang]
+    y, m, d = now.year, now.month, now.day
+    if m <= 2: y -= 1; m += 12
+    a = y // 100; b = a // 4; c = 2 - a + b
+    e = int(365.25 * (y + 4716)); f = int(30.6001 * (m + 1))
+    jd = c + d + e + f - 1524.5
+    moon_age = (jd - 2451549.5) % 29.53058867
+    if moon_age < 2.5 or moon_age > 27.0: return t["luna_nueva"]
+    elif 12.0 < moon_age < 17.0: return t["luna_llena"]
+    else: return t["luna_creciente"]
+
+def wind_description(kmh: int, lang: str) -> str:
+    t = TEXTOS[lang]
+    if kmh < 1: return t["wind_desc_calma"]
+    if kmh < 12: return t["wind_desc_ligera"]
+    if kmh < 20: return t["wind_desc_moderada"]
+    if kmh < 29: return t["wind_desc_fuerte"]
+    if kmh < 39: return t["wind_desc_muy_fuerte"]
+    return t["wind_desc_tormenta"]
+
+def uv_explanation(uv: int, lang: str) -> str:
+    t = TEXTOS[lang]
+    if uv <= 2: return f"{uv} ⚪ {t['uv_bajo']}"
+    if uv <= 5: return f"{uv} 🟢 {t['uv_moderado']}"
+    if uv <= 7: return f"{uv} 🟡 {t['uv_alto']}"
+    if uv <= 10: return f"{uv} 🟠 {t['uv_muy_alto']}"
+    return f"{uv} 🔴 {t['uv_extremo']}"
+
+def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
+    t = TEXTOS[lang]
+    lines = []
+    if rain_prob < 20: lines.append(t["desc_clear"])
+    elif rain_prob < 50: lines.append(t["desc_partly"])
+    else: lines.append(t["desc_cloudy"])
+    if wind_kmh > 20: lines.append(t["desc_wind_strong"])
+    elif wind_kmh > 10: lines.append(t["desc_wind_light"])
+    else: lines.append(t["desc_wind_calma"])
+    if max_t > 25: lines.append(t["desc_temp_hot"])
+    elif max_t < 18: lines.append(t["desc_temp_cool"])
+    else: lines.append(t["desc_temp_pleasant"])
+    if loc_name in COASTAL_PUEBLOS: lines.append(t["desc_coast"])
+    else: lines.append(t["desc_mountain"])
+    return lines
+
+def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name: str, lang: str) -> list:
+    t = TEXTOS[lang]
+    cons = []
+    if uv_max >= 6: cons.append(t["consejo_uv"])
+    if rain_prob >= 40: cons.append(t["consejo_rain"])
+    if wind_kmh >= 25 or temp < 14: cons.append(t["consejo_windcold"])
+    if rain_prob < 20 and uv_max < 5 and temp > 18: cons.append(t["consejo_ligera"])
+    else: cons.append(t["consejo_capa"])
+    if loc_name in COASTAL_PUEBLOS: cons.append(t["consejo_coast"])
+    else: cons.append(t["consejo_mountain"])
+    return cons
 
 # ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
@@ -540,20 +600,171 @@ async def get_real_weather(loc_name: str):
     return None, "fallback", None, 60
 
 # ====================== MENSAJE FINAL ======================
-# (build_weather_message exactamente igual que en la versión anterior)
+def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
+    t = TEXTOS[lang]
+    now = datetime.now()
+    is_morning = now.hour < 14
 
-# ====================== COMANDOS y MAIN ======================
-# (cmd_actualizar, cmd_idioma, lang_callback, cmd_poblacion, loc_callback, weather_job, main)
-# Exactamente igual que en la versión anterior, con los imports corregidos
+    if source == "openmeteo" and data:
+        c = data["current"]
+        d = data["daily"]
+        h = data["hourly"]
+        idx = 0 if is_morning else 1
+        temp = round(c["temperature_2m"])
+        sens = round(c["apparent_temperature"])
+        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
+        rain_prob = d.get("precipitation_probability_max", [25]*4)[idx]
+        wind_kmh = round(d.get("wind_speed_10m_max", [20]*4)[idx])
+        max_t = round(d["temperature_2m_max"][idx])
+        min_t = round(d["temperature_2m_min"][idx])
+        sunrise = d["sunrise"][idx].split("T")[1][:5]
+        sunset = d["sunset"][idx].split("T")[1][:5]
+        estado = t["estado_despejado"] if rain_prob < 30 else t["estado_nublado"]
+    else:
+        idx = 0 if is_morning else 1
+        temp, sens, uv_max, rain_prob, wind_kmh = 17, 16, 8, 25, 20
+        max_t, min_t = 23, 12
+        sunrise, sunset = "07:11", "19:49"
+        estado = t["estado_fallback"]
+        d = {"temperature_2m_max": [23]*4, "temperature_2m_min": [12]*4, "precipitation_probability_max": [25]*4, "wind_speed_10m_max": [20]*4}
 
+    lunar = get_lunar_phase(now, lang)
+    wind_desc = wind_description(wind_kmh, lang)
+    uv_text = uv_explanation(uv_max, lang)
+    desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
+    consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
+
+    lines = [
+        loc_name, "",
+        t["temp_actual_title"],
+        f" {temp}°C" + t["sensacion"].format(sens=sens),
+        t["humedad"].format(hum=humidity),
+        t["estado_actual"].format(estado=estado), "",
+        t["prediccion_hoy"] if is_morning else t["prediccion_manana"], "",
+        t["temp_max"].format(max_t=max_t),
+        t["temp_min"].format(min_t=min_t),
+        t["prob_lluvia"].format(rain_prob=rain_prob),
+        t["int_viento"].format(wind_kmh=wind_kmh, wind_desc=wind_desc),
+        t["int_uv"].format(uv_text=uv_text),
+        (t["hora_puesta"] if is_morning else t["hora_amanecer"]) + f": {sunset if is_morning else sunrise}.",
+        t["fase_lunar"].format(lunar=lunar),
+    ]
+
+    if rain_prob > 20 and source == "openmeteo" and data:
+        rain_times = []
+        times = data["hourly"]["time"]
+        probs = data["hourly"]["precipitation_probability"]
+        for i in range(len(times)):
+            if probs[i] > 20:
+                rain_times.append(times[i].split("T")[1][:5])
+            if len(rain_times) >= 6: break
+        if rain_times:
+            lines.append(t["rain_hours"].format(hours=", ".join(rain_times)))
+
+    if sea_temp is not None:
+        lines.append(t["sea_temp"].format(sea=sea_temp))
+
+    lines.extend([
+        "", "📅 " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
+    ])
+
+    lines.append(t["brief_title"])
+    brief_days_list = t["brief_days"]
+    for k in range(3):
+        day_idx = idx + 1 + k
+        if day_idx >= len(d["temperature_2m_max"]): break
+        lines.append(t["brief_format"].format(
+            day_label=brief_days_list[k],
+            max_t=round(d["temperature_2m_max"][day_idx]),
+            min_t=round(d["temperature_2m_min"][day_idx]),
+            rain_prob=round(d["precipitation_probability_max"][day_idx]),
+            wind_kmh=round(d["wind_speed_10m_max"][day_idx])
+        ))
+
+    lines.extend(["", t["info_envios"], "", t["footer"]])
+    return "\n".join(lines)
+
+# ====================== ENVÍO ======================
+async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    u = get_user_data(user_id)
+    if not u["chat_id"]: return
+    data, source, sea_temp, humidity = await get_real_weather(u["location"])
+    text = build_weather_message(data, source, u["location"], u["lang"], sea_temp, humidity)
+    await context.bot.send_message(chat_id=u["chat_id"], text=text)
+    logging.info(f"✅ Enviado | {u['location']} | fuente={source} | user={user_id}")
+
+async def weather_job(context: ContextTypes.DEFAULT_TYPE):
+    logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
+    for u in get_all_users():
+        if u["chat_id"]:
+            await send_user_weather(context, u["user_id"])
+
+# ====================== COMANDOS ======================
+async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    update_user_data(user_id, chat_id=chat_id)
+    await send_user_weather(context, user_id)
+
+async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    update_user_data(user_id, chat_id=update.effective_chat.id)
+    lang = get_user_data(user_id)["lang"]
+    kb = [
+        [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_ES"), InlineKeyboardButton("🇬🇧 English", callback_data="lang_EN")],
+        [InlineKeyboardButton("🇳🇱 Nederlands", callback_data="lang_NL"), InlineKeyboardButton("🇩🇪 Deutsch", callback_data="lang_DE")],
+        [InlineKeyboardButton("🇫🇷 Français", callback_data="lang_FR"), InlineKeyboardButton("🇮🇹 Italiano", callback_data="lang_IT")],
+    ]
+    await update.message.reply_text("🌍 " + TEXTOS[lang]["idioma"], reply_markup=InlineKeyboardMarkup(kb))
+
+async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    new_lang = query.data.split("_")[1]
+    update_user_data(user_id, lang=new_lang, chat_id=query.message.chat_id)
+    text = TEXTOS[new_lang]["bienvenido"].format(loc=get_user_data(user_id)["location"])
+    await query.edit_message_text(text)
+    await send_user_weather(context, user_id)
+
+async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    update_user_data(user_id, chat_id=update.effective_chat.id)
+    lang = get_user_data(user_id)["lang"]
+    kb = []
+    row = []
+    for p in PUEBLOS_ALFA:
+        row.append(InlineKeyboardButton(p, callback_data=f"loc_{p}"))
+        if len(row) == 3: kb.append(row); row = []
+    if row: kb.append(row)
+    kb.append([
+        InlineKeyboardButton("MOTRIL 🏖️", callback_data="loc_MOTRIL"),
+        InlineKeyboardButton("ALMUÑÉCAR 🏖️", callback_data="loc_ALMUÑÉCAR"),
+        InlineKeyboardButton("SALOBREÑA 🏖️", callback_data="loc_SALOBREÑA")
+    ])
+    await update.message.reply_text(TEXTOS[lang]["cambiar"], reply_markup=InlineKeyboardMarkup(kb))
+
+async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    loc = query.data.split("_", 1)[1]
+    update_user_data(user_id, location=loc, chat_id=query.message.chat_id)
+    text = TEXTOS[get_user_data(user_id)["lang"]]["buscando"].format(loc=loc)
+    await query.edit_message_text(text)
+    await send_user_weather(context, user_id)
+
+# ====================== MAIN ======================
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     init_db()
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     async def post_init(application):
         await application.bot.delete_webhook(drop_pending_updates=True)
         logging.info("Webhook borrado correctamente")
+
     app.post_init = post_init
 
     app.add_handler(CommandHandler(["start", "idioma", "language"], cmd_idioma))
@@ -571,7 +782,7 @@ def main():
 
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Caché + Pronóstico 3 días")
+    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Caché + Pronóstico 3 días + Todos comandos")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
