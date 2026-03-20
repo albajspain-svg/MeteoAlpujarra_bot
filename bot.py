@@ -18,7 +18,7 @@ MODO_PRUEBA = False
 DB_PATH = "users.db"
 
 # ====================== CACHÉ ANTI-429 ======================
-weather_cache = {}
+weather_cache = {} user_last_request = {}
 
 # ====================== BBDD USUARIOS ======================
 def init_db():
@@ -711,11 +711,25 @@ async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
     for u in get_all_users():
-        if u["chat_id"]:
-            await send_user_weather(context, u["user_id"])
+    if u["chat_id"]:
+        await send_user_weather(context, u["user_id"])
+        await asyncio.sleep(0.3)
 
 # ====================== COMANDOS ======================
 async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # ⏱️ límite: 1 petición cada 30 segundos por usuario
+    now = time_module.time()
+    if user_id in user_last_request and now - user_last_request[user_id] < 30:
+        await update.message.reply_text("⏳ Espera unos segundos antes de pedir otra actualización")
+        return
+
+    user_last_request[user_id] = now
+
+    update_user_data(user_id, chat_id=chat_id)
+    await send_user_weather(context, user_id)
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     update_user_data(user_id, chat_id=chat_id)
