@@ -8,14 +8,13 @@ import httpx
 
 # ====================== CONFIG ======================
 TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")  # Ya no se usa para envíos (multi-usuario), pero se mantiene por compatibilidad/env
 if not TOKEN:
     raise ValueError("❌ Falta BOT_TOKEN en Variables de Railway")
 MODO_PRUEBA = False  # ← False = 8:00 y 20:00 reales
 
 DB_PATH = "users.db"
 
-# ====================== DB USUARIOS (PERSISTENTE) ======================
+# ====================== BBDD USUARIOS (PERSISTENTE) ======================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('''
@@ -35,11 +34,10 @@ def get_user_data(user_id: int):
     cur.execute("SELECT lang, location, chat_id FROM users WHERE user_id=?", (user_id,))
     row = cur.fetchone()
     if row:
-        result = {"lang": row[0], "location": row[1], "chat_id": row[2]}
         conn.close()
-        return result
+        return {"lang": row[0], "location": row[1], "chat_id": row[2]}
     # Nuevo usuario
-    cur.execute("INSERT INTO users (user_id, lang, location, chat_id) VALUES (?, 'ES', 'ÓRGIVA', NULL)", (user_id,))
+    cur.execute("INSERT INTO users (user_id, lang, location) VALUES (?, 'ES', 'ÓRGIVA')", (user_id,))
     conn.commit()
     conn.close()
     return {"lang": "ES", "location": "ÓRGIVA", "chat_id": None}
@@ -85,15 +83,16 @@ COORDS = {
     "MOTRIL": (36.75, -3.52), "ALMUÑÉCAR": (36.73, -3.69), "SALOBREÑA": (36.74, -3.59),
 }
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
+PUEBLOS_ALFA = ["BAYACAS", "BUBIÓN", "CAPILEIRA", "EL MORREÓN", "LANJARÓN", "LAS BARRERAS", "LOS TABLONES", "ÓRGIVA", "PAMPANEIRA", "TREVÉLEZ", "UGÍJAR", "YEGEN"]
 
-# ====================== TEXTOS COMPLETOS (TODOS LOS IDIOMAS + NUEVOS) ======================
+# ====================== TEXTOS COMPLETOS (TODOS LOS IDIOMAS) ======================
 TEXTOS = {
     "ES": {
         "idioma_cmd": "/idioma", "poblacion_cmd": "/poblacion",
         "idioma": "Selecciona idioma",
         "bienvenido": "✅ Bot activado\nPoblación actual: {loc}",
         "cambiar": "Elige tu localidad:",
-        "buscando": "✅ Cambiado a **{loc}**\nBuscando datos actualizados...\nEspere un momento.",
+        "buscando": "✅ Cambiado a **{loc}**\nBuscando datos actualizados...\nEspere un momento.\n📍 Para cambiar de nuevo usa /poblacion",
         "footer": "🌍 Cambiar idioma: /start\n📍 Cambiar localización: /poblacion",
         "siguiente_8": "Siguiente mensaje a las 20:00\n¡Que tengas un buen día!",
         "siguiente_20": "Siguiente mensaje a las 8:00\n¡Que tengas una buena noche!",
@@ -152,7 +151,6 @@ TEXTOS = {
         "sea_temp": "🌊 Temperatura del agua del mar: {sea}°C.",
         "humedad": "💧 Humedad relativa: {hum}%.",
         "info_envios": "Los pronósticos se envían automáticamente a las 8am para el día corriente y a las 20h para el día siguiente.",
-        # NUEVOS
         "rain_hours": "☔ Lluvia posible a las: {hours}.",
         "brief_title": "Pronóstico breve próximos 3 días:",
         "brief_days": ["Mañana", "Pasado mañana", "En 3 días"],
@@ -163,7 +161,7 @@ TEXTOS = {
         "idioma": "Select language",
         "bienvenido": "✅ Activated\nCurrent location: {loc}",
         "cambiar": "Choose your location:",
-        "buscando": "✅ Changed to **{loc}**\nFetching updated data...\nPlease wait.",
+        "buscando": "✅ Changed to **{loc}**\nFetching updated data...\nPlease wait.\n📍 To change again use /poblacion",
         "footer": "🌍 Change language: /start\n📍 Change location: /poblacion",
         "siguiente_8": "Next message at 20:00\nHave a great day!",
         "siguiente_20": "Next message at 8:00\nGood night!",
@@ -222,7 +220,6 @@ TEXTOS = {
         "sea_temp": "🌊 Sea water temperature: {sea}°C.",
         "humedad": "💧 Relative humidity: {hum}%.",
         "info_envios": "Forecasts are sent automatically at 8am for the current day and at 20h for the next day.",
-        # NUEVOS
         "rain_hours": "☔ Possible rain around: {hours}.",
         "brief_title": "Brief forecast for the next 3 days:",
         "brief_days": ["Tomorrow", "Day after tomorrow", "In 3 days"],
@@ -233,7 +230,7 @@ TEXTOS = {
         "idioma": "Selecteer taal",
         "bienvenido": "✅ Bot geactiveerd\nHuidige locatie: {loc}",
         "cambiar": "Kies je locatie:",
-        "buscando": "✅ Gewijzigd naar **{loc}**\nGegevens ophalen...\nEen moment geduld.",
+        "buscando": "✅ Gewijzigd naar **{loc}**\nGegevens ophalen...\nEen moment geduld.\n📍 Om opnieuw te wijzigen gebruik /poblacion",
         "footer": "🌍 Taal wijzigen: /start\n📍 Locatie wijzigen: /poblacion",
         "siguiente_8": "Volgende bericht om 20:00\nFijne dag!",
         "siguiente_20": "Volgende bericht om 8:00\nGoede nacht!",
@@ -292,7 +289,6 @@ TEXTOS = {
         "sea_temp": "🌊 Temperatuur van het zeewater: {sea}°C.",
         "humedad": "💧 Relatieve vochtigheid: {hum}%.",
         "info_envios": "De voorspellingen worden automatisch verzonden om 8:00 voor de huidige dag en om 20:00 voor de volgende dag.",
-        # NUEVOS
         "rain_hours": "☔ Mogelijke regen rond: {hours}.",
         "brief_title": "Korte voorspelling voor de komende 3 dagen:",
         "brief_days": ["Morgen", "Overmorgen", "Over 3 dagen"],
@@ -303,7 +299,7 @@ TEXTOS = {
         "idioma": "Sprache auswählen",
         "bienvenido": "✅ Bot aktiviert\nAktueller Standort: {loc}",
         "cambiar": "Wählen Sie Ihren Standort:",
-        "buscando": "✅ Geändert zu **{loc}**\nDaten abrufen...\nBitte warten.",
+        "buscando": "✅ Geändert zu **{loc}**\nDaten abrufen...\nBitte warten.\n📍 Zum erneuten Ändern verwenden Sie /poblacion",
         "footer": "🌍 Sprache ändern: /start\n📍 Standort ändern: /poblacion",
         "siguiente_8": "Nächste Nachricht um 20:00\nSchönen Tag!",
         "siguiente_20": "Nächste Nachricht um 8:00\nGute Nacht!",
@@ -362,7 +358,6 @@ TEXTOS = {
         "sea_temp": "🌊 Wassertemperatur des Meeres: {sea}°C.",
         "humedad": "💧 Relative Luftfeuchtigkeit: {hum}%.",
         "info_envios": "Die Vorhersagen werden automatisch um 8:00 für den aktuellen Tag und um 20:00 für den nächsten Tag gesendet.",
-        # NUEVOS
         "rain_hours": "☔ Mögliche Regen um: {hours}.",
         "brief_title": "Kurze Vorhersage für die nächsten 3 Tage:",
         "brief_days": ["Morgen", "Übermorgen", "In 3 Tagen"],
@@ -373,7 +368,7 @@ TEXTOS = {
         "idioma": "Sélectionnez la langue",
         "bienvenido": "✅ Bot activé\nLocalisation actuelle : {loc}",
         "cambiar": "Choisissez votre localisation :",
-        "buscando": "✅ Changé en **{loc}**\nRécupération des données...\nVeuillez patienter.",
+        "buscando": "✅ Changé en **{loc}**\nRécupération des données...\nVeuillez patienter.\n📍 Pour changer à nouveau utilisez /poblacion",
         "footer": "🌍 Changer de langue : /start\n📍 Changer de localisation : /poblacion",
         "siguiente_8": "Prochain message à 20:00\nBonne journée !",
         "siguiente_20": "Prochain message à 8:00\nBonne nuit !",
@@ -432,7 +427,6 @@ TEXTOS = {
         "sea_temp": "🌊 Température de l'eau de mer : {sea}°C.",
         "humedad": "💧 Humidité relative : {hum}%.",
         "info_envios": "Les prévisions sont envoyées automatiquement à 8h pour le jour courant et à 20h pour le jour suivant.",
-        # NUEVOS
         "rain_hours": "☔ Pluie possible vers : {hours}.",
         "brief_title": "Prévision brève pour les 3 prochains jours :",
         "brief_days": ["Demain", "Après-demain", "Dans 3 jours"],
@@ -443,7 +437,7 @@ TEXTOS = {
         "idioma": "Seleziona lingua",
         "bienvenido": "✅ Bot attivato\nPosizione attuale: {loc}",
         "cambiar": "Scegli la tua località:",
-        "buscando": "✅ Cambiato a **{loc}**\nRecupero dati aggiornati...\nAttendi un momento.",
+        "buscando": "✅ Cambiato a **{loc}**\nRecupero dati aggiornati...\nAttendi un momento.\n📍 Per cambiare di nuovo usa /poblacion",
         "footer": "🌍 Cambia lingua: /start\n📍 Cambia località: /poblacion",
         "siguiente_8": "Prossimo messaggio alle 20:00\nBuona giornata!",
         "siguiente_20": "Prossimo messaggio alle 8:00\nBuona notte!",
@@ -502,17 +496,14 @@ TEXTOS = {
         "sea_temp": "🌊 Temperatura dell'acqua del mare: {sea}°C.",
         "humedad": "💧 Umidità relativa: {hum}%.",
         "info_envios": "Le previsioni vengono inviate automaticamente alle 8:00 per il giorno corrente e alle 20:00 per il giorno successivo.",
-        # NUEVOS
         "rain_hours": "☔ Pioggia possibile intorno alle: {hours}.",
         "brief_title": "Previsione breve per i prossimi 3 giorni:",
         "brief_days": ["Domani", "Dopodomani", "Tra 3 giorni"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Pioggia {rain_prob}% Vento {wind_kmh} km/h",
-    },
+    }
 }
 
-PUEBLOS_ALFA = ["BAYACAS", "BUBIÓN", "CAPILEIRA", "EL MORREÓN", "LANJARÓN", "LAS BARRERAS", "LOS TABLONES", "ÓRGIVA", "PAMPANEIRA", "TREVÉLEZ", "UGÍJAR", "YEGEN"]
-
-# ====================== FASE LUNAR, VIENTO, UV, DESCRIPCIÓN, CONSEJOS ======================
+# ====================== FUNCIONES AUXILIARES ======================
 def get_lunar_phase(now: datetime, lang: str) -> str:
     t = TEXTOS[lang]
     y, m, d = now.year, now.month, now.day
@@ -570,7 +561,7 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
     else: cons.append(t["consejo_mountain"])
     return cons
 
-# ====================== OBTENER DATOS (Open-Meteo con forecast_days=4 + nuevos daily params) ======================
+# ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
     if loc_name in ["LOS TABLONES", "EL MORREÓN", "LAS BARRERAS", "BAYACAS"]:
         lat, lon = COORDS["ÓRGIVA"]
@@ -595,11 +586,12 @@ async def get_real_weather(loc_name: str):
     except: pass
     return None, "fallback", None, 60
 
-# ====================== MENSAJE FINAL (con lluvia por horas + pronóstico breve 3 días) ======================
+# ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
     now = datetime.now()
     is_morning = now.hour < 14
+
     if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
@@ -610,17 +602,23 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
         rain_prob = d.get("precipitation_probability_max", [25]*4)[idx]
         wind_kmh = round(d.get("wind_speed_10m_max", [20]*4)[idx])
-        max_t = d["temperature_2m_max"][idx]
-        min_t = d["temperature_2m_min"][idx]
+        max_t = round(d["temperature_2m_max"][idx])
+        min_t = round(d["temperature_2m_min"][idx])
         sunrise = d["sunrise"][idx].split("T")[1][:5]
         sunset = d["sunset"][idx].split("T")[1][:5]
         estado = t["estado_despejado"] if rain_prob < 30 else t["estado_nublado"]
     else:
+        idx = 0 if is_morning else 1
         temp, sens, uv_max, rain_prob, wind_kmh = 17, 16, 8, 25, 20
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-        d = {"temperature_2m_max": [23]*4, "temperature_2m_min": [12]*4, "precipitation_probability_max": [25]*4, "wind_speed_10m_max": [20]*4}
+        d = {
+            "temperature_2m_max": [23]*4,
+            "temperature_2m_min": [12]*4,
+            "precipitation_probability_max": [25]*4,
+            "wind_speed_10m_max": [20]*4
+        }
 
     lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
@@ -644,78 +642,52 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         t["fase_lunar"].format(lunar=lunar),
     ]
 
-    # LLUVIA POR HORAS (solo si >20%)
     if rain_prob > 20 and source == "openmeteo" and data:
         rain_times = []
         times = data["hourly"]["time"]
         probs = data["hourly"]["precipitation_probability"]
         for i in range(len(times)):
             if probs[i] > 20:
-                hour_str = times[i].split("T")[1][:5]
-                rain_times.append(hour_str)
-            if len(rain_times) >= 8:
-                break
+                rain_times.append(times[i].split("T")[1][:5])
+            if len(rain_times) >= 6: break
         if rain_times:
-            hours_str = ", ".join(rain_times)
-            lines.append(t["rain_hours"].format(hours=hours_str))
+            lines.append(t["rain_hours"].format(hours=", ".join(rain_times)))
 
     if sea_temp is not None:
         lines.append(t["sea_temp"].format(sea=sea_temp))
 
     lines.extend([
-        "",
-        "📅 " + t["desc_day"],
-        *desc_lines,
-        "",
-        "💡 " + t["consejos_title"],
-        *consejos,
-        "",
-        t["separator"],
+        "", "📅 " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
     ])
 
-    # PRONÓSTICO BREVE 3 DÍAS SIGUIENTES
     lines.append(t["brief_title"])
     brief_days_list = t["brief_days"]
     for k in range(3):
         day_idx = idx + 1 + k
-        if day_idx >= len(d["temperature_2m_max"]):
-            break
-        max_t_b = round(d["temperature_2m_max"][day_idx])
-        min_t_b = round(d["temperature_2m_min"][day_idx])
-        rain_p_b = round(d["precipitation_probability_max"][day_idx])
-        wind_b = round(d["wind_speed_10m_max"][day_idx])
-        day_label = brief_days_list[k]
-        brief_line = t["brief_format"].format(
-            day_label=day_label, max_t=max_t_b, min_t=min_t_b,
-            rain_prob=rain_p_b, wind_kmh=wind_b
-        )
-        lines.append(brief_line)
+        if day_idx >= len(d["temperature_2m_max"]): break
+        lines.append(t["brief_format"].format(
+            day_label=brief_days_list[k],
+            max_t=round(d["temperature_2m_max"][day_idx]),
+            min_t=round(d["temperature_2m_min"][day_idx]),
+            rain_prob=round(d["precipitation_probability_max"][day_idx]),
+            wind_kmh=round(d["wind_speed_10m_max"][day_idx])
+        ))
 
-    lines.extend([
-        "",
-        t["info_envios"],
-        "",
-        t["footer"]
-    ])
+    lines.extend(["", t["info_envios"], "", t["footer"]])
     return "\n".join(lines)
 
-# ====================== ENVÍO POR USUARIO ======================
+# ====================== ENVÍO ======================
 async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     u = get_user_data(user_id)
-    chat_id = u["chat_id"]
-    if not chat_id:
-        return
-    lang = u["lang"]
-    loc = u["location"]
-    data, source, sea_temp, humidity = await get_real_weather(loc)
-    text = build_weather_message(data, source, loc, lang, sea_temp, humidity)
-    await context.bot.send_message(chat_id=chat_id, text=text)
-    logging.info(f"✅ Enviado | {loc} | fuente={source} | user={user_id}")
+    if not u["chat_id"]: return
+    data, source, sea_temp, humidity = await get_real_weather(u["location"])
+    text = build_weather_message(data, source, u["location"], u["lang"], sea_temp, humidity)
+    await context.bot.send_message(chat_id=u["chat_id"], text=text)
+    logging.info(f"✅ Enviado | {u['location']} | fuente={source} | user={user_id}")
 
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
-    users = get_all_users()
-    for u in users:
+    for u in get_all_users():
         if u["chat_id"]:
             await send_user_weather(context, u["user_id"])
 
@@ -728,8 +700,7 @@ async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    update_user_data(user_id, chat_id=chat_id)
+    update_user_data(user_id, chat_id=update.effective_chat.id)
     lang = get_user_data(user_id)["lang"]
     kb = [
         [InlineKeyboardButton("🇪🇸 Español", callback_data="lang_ES"), InlineKeyboardButton("🇬🇧 English", callback_data="lang_EN")],
@@ -742,27 +713,22 @@ async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    chat_id = query.message.chat_id
     new_lang = query.data.split("_")[1]
-    update_user_data(user_id, lang=new_lang, chat_id=chat_id)
+    update_user_data(user_id, lang=new_lang, chat_id=query.message.chat_id)
     text = TEXTOS[new_lang]["bienvenido"].format(loc=get_user_data(user_id)["location"])
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
 
 async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    update_user_data(user_id, chat_id=chat_id)
+    update_user_data(user_id, chat_id=update.effective_chat.id)
     lang = get_user_data(user_id)["lang"]
     kb = []
     row = []
     for p in PUEBLOS_ALFA:
         row.append(InlineKeyboardButton(p, callback_data=f"loc_{p}"))
-        if len(row) == 3:
-            kb.append(row)
-            row = []
-    if row:
-        kb.append(row)
+        if len(row) == 3: kb.append(row); row = []
+    if row: kb.append(row)
     kb.append([
         InlineKeyboardButton("MOTRIL 🏖️", callback_data="loc_MOTRIL"),
         InlineKeyboardButton("ALMUÑÉCAR 🏖️", callback_data="loc_ALMUÑÉCAR"),
@@ -774,9 +740,8 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    chat_id = query.message.chat_id
     loc = query.data.split("_", 1)[1]
-    update_user_data(user_id, location=loc, chat_id=chat_id)
+    update_user_data(user_id, location=loc, chat_id=query.message.chat_id)
     text = TEXTOS[get_user_data(user_id)["lang"]]["buscando"].format(loc=loc)
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
@@ -784,7 +749,7 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ====================== MAIN ======================
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    init_db()  # Inicializa BBDD persistente
+    init_db()
 
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -794,7 +759,6 @@ def main():
 
     app.post_init = post_init
 
-    # COMANDOS (con aliases)
     app.add_handler(CommandHandler(["start", "idioma", "language"], cmd_idioma))
     app.add_handler(CommandHandler(["poblacion", "location"], cmd_poblacion))
     app.add_handler(CommandHandler(["actualizar", "update"], cmd_actualizar))
@@ -808,10 +772,9 @@ def main():
         jq.run_daily(weather_job, time=time(hour=8, minute=0))
         jq.run_daily(weather_job, time=time(hour=20, minute=0))
 
-    # Keep-alive
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT INICIADO | Multi-usuario con BBDD SQLite | Pronóstico 3 días + lluvia por horas | /actualizar solo 1 vez | Todos idiomas completos")
+    logging.info("✅ BOT INICIADO | Multi-usuario con BBDD SQLite | Todos idiomas completos | Pronóstico 3 días + lluvia por horas | Confirmación con /poblacion")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
