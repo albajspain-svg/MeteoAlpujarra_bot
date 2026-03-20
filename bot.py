@@ -10,7 +10,8 @@ TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID"))
 if not TOKEN or not CHAT_ID:
     raise ValueError("❌ Faltan BOT_TOKEN o CHAT_ID en Variables de Railway")
-MODO_PRUEBA = False # ← True = prueba cada 5 minutos. Cambia a False para 8:00 y 20:00 reales
+
+MODO_PRUEBA = False  # ← False = envíos reales a las 8:00 y 20:00
 
 # ====================== LOCALIDADES ======================
 COORDS = {
@@ -22,7 +23,7 @@ COORDS = {
 }
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
 
-# ====================== TEXTOS TRADUCIDOS (actualizados con descripciones reales dinámicas) ======================
+# ====================== TEXTOS COMPLETOS (todos los idiomas) ======================
 TEXTOS = {
     "ES": {
         "idioma_cmd": "/idioma", "poblacion_cmd": "/poblacion",
@@ -69,7 +70,6 @@ TEXTOS = {
         "wind_desc_fuerte": "viento fuerte",
         "wind_desc_muy_fuerte": "viento muy fuerte",
         "wind_desc_tormenta": "tormenta",
-        # === DESCRIPCIONES DINÁMICAS REALES (basadas en datos Open-Meteo) ===
         "desc_clear": "• Día mayormente despejado y soleado.",
         "desc_partly": "• Día con intervalos de nubes y claros.",
         "desc_cloudy": "• Día nublado o con chubascos.",
@@ -81,14 +81,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Temperaturas agradables y cómodas.",
         "desc_coast": "• Brisa marina típica de la costa.",
         "desc_mountain": "• Clima típico de montaña con posibles variaciones.",
-        # NUEVO: UV con FPS traducido + rango recomendado
         "uv_bajo": "Bajo (FPS 15-30 recomendado)",
         "uv_moderado": "Moderado (FPS 30-50 recomendado)",
         "uv_alto": "Alto (FPS 50+ recomendado)",
         "uv_muy_alto": "Muy alto (FPS 50+ y evitar sol recomendado)",
         "uv_extremo": "Extremo (FPS 50+ y evitar exposición recomendado)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Temperatura del agua del mar: {sea}°C.",
+        "proximo_8": "Siguiente pronóstico automático a las 8:00",
+        "proximo_20": "Siguiente pronóstico automático a las 20:00",
+        "proximo_manana_8": "Siguiente pronóstico automático a las 8:00 (mañana)",
     },
     "EN": {
         "idioma_cmd": "/language", "poblacion_cmd": "/location",
@@ -146,14 +147,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Pleasant and comfortable temperatures.",
         "desc_coast": "• Typical sea breeze on the coast.",
         "desc_mountain": "• Typical mountain climate with possible variations.",
-        # NUEVO: UV con SPF traducido + rango recomendado
         "uv_bajo": "Low (SPF 15-30 recommended)",
         "uv_moderado": "Moderate (SPF 30-50 recommended)",
         "uv_alto": "High (SPF 50+ recommended)",
         "uv_muy_alto": "Very high (SPF 50+ and avoid sun recommended)",
         "uv_extremo": "Extreme (SPF 50+ and avoid exposure recommended)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Sea water temperature: {sea}°C.",
+        "proximo_8": "Next automatic forecast at 8:00",
+        "proximo_20": "Next automatic forecast at 20:00",
+        "proximo_manana_8": "Next automatic forecast at 8:00 (tomorrow)",
     },
     "NL": {
         "idioma_cmd": "/taal", "poblacion_cmd": "/plaats",
@@ -211,14 +213,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Aangename en comfortabele temperaturen.",
         "desc_coast": "• Typische zeewind aan de kust.",
         "desc_mountain": "• Typisch bergklimaat met mogelijke variaties.",
-        # NUEVO: UV con SPF traducido + rango recomendado
         "uv_bajo": "Laag (SPF 15-30 aanbevolen)",
         "uv_moderado": "Matig (SPF 30-50 aanbevolen)",
         "uv_alto": "Hoog (SPF 50+ aanbevolen)",
         "uv_muy_alto": "Zeer hoog (SPF 50+ en zon vermijden aanbevolen)",
         "uv_extremo": "Extreem (SPF 50+ en blootstelling vermijden aanbevolen)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Zeewatertemperatuur: {sea}°C.",
+        "proximo_8": "Volgende automatische voorspelling om 8:00",
+        "proximo_20": "Volgende automatische voorspelling om 20:00",
+        "proximo_manana_8": "Volgende automatische voorspelling om 8:00 (morgen)",
     },
     "DE": {
         "idioma_cmd": "/sprache", "poblacion_cmd": "/ort",
@@ -276,14 +279,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Angenehme und komfortable Temperaturen.",
         "desc_coast": "• Typische Meeresbrise an der Küste.",
         "desc_mountain": "• Typisches Bergklima mit möglichen Schwankungen.",
-        # NUEVO: UV con SPF traducido + rango recomendado
         "uv_bajo": "Niedrig (SPF 15-30 empfohlen)",
         "uv_moderado": "Mäßig (SPF 30-50 empfohlen)",
         "uv_alto": "Hoch (SPF 50+ empfohlen)",
         "uv_muy_alto": "Sehr hoch (SPF 50+ und Sonne vermeiden empfohlen)",
         "uv_extremo": "Extrem (SPF 50+ und Exposition vermeiden empfohlen)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Meerwassertemperatur: {sea}°C.",
+        "proximo_8": "Nächste automatische Vorhersage um 8:00",
+        "proximo_20": "Nächste automatische Vorhersage um 20:00",
+        "proximo_manana_8": "Nächste automatische Vorhersage um 8:00 (morgen)",
     },
     "FR": {
         "idioma_cmd": "/langue", "poblacion_cmd": "/localite",
@@ -341,14 +345,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Températures agréables et confortables.",
         "desc_coast": "• Brise marine typique de la côte.",
         "desc_mountain": "• Climat typique de montagne avec possibles variations.",
-        # NUEVO: UV con FPS traducido + rango recomendado
         "uv_bajo": "Bas (FPS 15-30 recommandé)",
         "uv_moderado": "Modéré (FPS 30-50 recommandé)",
         "uv_alto": "Élevé (FPS 50+ recommandé)",
         "uv_muy_alto": "Très élevé (FPS 50+ et éviter le soleil recommandé)",
         "uv_extremo": "Extrême (FPS 50+ et éviter l'exposition recommandé)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Température de l'eau de mer : {sea}°C.",
+        "proximo_8": "Prochain pronostic automatique à 8h00",
+        "proximo_20": "Prochain pronostic automatique à 20h00",
+        "proximo_manana_8": "Prochain pronostic automatique à 8h00 (demain)",
     },
     "IT": {
         "idioma_cmd": "/lingua", "poblacion_cmd": "/localita",
@@ -406,14 +411,15 @@ TEXTOS = {
         "desc_temp_pleasant": "• Temperature piacevoli e confortevoli.",
         "desc_coast": "• Brezza marina tipica della costa.",
         "desc_mountain": "• Clima tipico di montagna con possibili variazioni.",
-        # NUEVO: UV con FPS traducido + rango recomendado
         "uv_bajo": "Basso (FPS 15-30 consigliato)",
         "uv_moderado": "Moderato (FPS 30-50 consigliato)",
         "uv_alto": "Alto (FPS 50+ consigliato)",
         "uv_muy_alto": "Molto alto (FPS 50+ e evitare il sole consigliato)",
         "uv_extremo": "Estremo (FPS 50+ e evitare l'esposizione consigliato)",
-        # NUEVO: Temperatura del mar (solo playas)
         "sea_temp": "🌊 Temperatura dell'acqua del mare: {sea}°C.",
+        "proximo_8": "Prossimo pronostico automatico alle 8:00",
+        "proximo_20": "Prossimo pronostico automatico alle 20:00",
+        "proximo_manana_8": "Prossimo pronostico automatico alle 8:00 (domani)",
     },
 }
 
@@ -443,16 +449,27 @@ def wind_description(kmh: int, lang: str) -> str:
     if kmh < 39: return t["wind_desc_muy_fuerte"]
     return t["wind_desc_tormenta"]
 
-# ====================== UV EXPLICACIÓN (AHORA CON FPS/SPF + RANGO RECOMENDADO EN CADA IDIOMA) ======================
+# ====================== UV CON EMOJI DE COLOR ======================
 def uv_explanation(uv: int, lang: str) -> str:
     t = TEXTOS[lang]
-    if uv <= 2: return t["uv_bajo"]
-    if uv <= 5: return t["uv_moderado"]
-    if uv <= 7: return t["uv_alto"]
-    if uv <= 10: return t["uv_muy_alto"]
-    return t["uv_extremo"]
+    if uv <= 2:
+        emoji = "⚪"
+        text = t["uv_bajo"]
+    elif uv <= 5:
+        emoji = "🟢"
+        text = t["uv_moderado"]
+    elif uv <= 7:
+        emoji = "🟡"
+        text = t["uv_alto"]
+    elif uv <= 10:
+        emoji = "🟠"
+        text = t["uv_muy_alto"]
+    else:
+        emoji = "🔴"
+        text = t["uv_extremo"]
+    return f"{uv} {emoji} {text}"
 
-# ====================== DESCRIPCIÓN DEL DÍA REAL (basada en datos Open-Meteo - sin mención a la luna) ======================
+# ====================== DESCRIPCIÓN DEL DÍA REAL ======================
 def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
     t = TEXTOS[lang]
     lines = []
@@ -480,7 +497,7 @@ def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, lo
         lines.append(t["desc_mountain"])
     return lines
 
-# ====================== CONSEJOS MÁS DETALLADOS Y LIGERAMENTE DIFERENTES POR POBLACIÓN ======================
+# ====================== CONSEJOS ======================
 def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name: str, lang: str) -> list:
     t = TEXTOS[lang]
     cons = []
@@ -500,35 +517,32 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
         cons.append(t["consejo_mountain"])
     return cons
 
-# ====================== OBTENER DATOS (Open-Meteo + Marine API para temperatura del mar en playas) ======================
+# ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
     logging.info(f"[{datetime.now().strftime('%H:%M:%S')}] Buscando datos para {loc_name}...")
+    lat, lon = COORDS.get(loc_name, (36.90, -3.42))
     if loc_name in ["LOS TABLONES", "EL MORREÓN", "LAS BARRERAS", "BAYACAS"]:
         lat, lon = COORDS["ÓRGIVA"]
-    else:
-        lat, lon = COORDS.get(loc_name, (36.90, -3.42))
 
     sea_temp = None
     if loc_name in COASTAL_PUEBLOS:
-        marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&daily=sea_surface_temperature&timezone=Europe/Madrid&forecast_days=1"
+        marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&daily=sea_surface_temperature_max&timezone=Europe/Madrid"
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                r_m = await client.get(marine_url)
-                if r_m.status_code == 200:
-                    sea_data = r_m.json()
-                    sea_temp = round(sea_data["daily"]["sea_surface_temperature"][0])
-                    logging.info(f"🌊 Temperatura mar {loc_name}: {sea_temp}°C")
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(marine_url)
+                if r.status_code == 200:
+                    sea_temp = round(r.json()["daily"]["sea_surface_temperature_max"][0])
         except Exception as e:
-            logging.warning(f"Marine API falló: {e}")
+            logging.warning(f"Marine API error: {e}")
 
-    url_om = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,wind_speed_10m,uv_index,precipitation_probability&hourly=temperature_2m,precipitation_probability,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/Madrid&forecast_days=2"
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,wind_speed_10m,uv_index,precipitation_probability&hourly=temperature_2m,precipitation_probability,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/Madrid&forecast_days=2"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.get(url_om)
+            r = await client.get(url)
             if r.status_code == 200:
                 return r.json(), "openmeteo", sea_temp
     except Exception as e:
-        logging.warning(f"Open-Meteo falló: {e}")
+        logging.warning(f"Open-Meteo error: {e}")
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -544,6 +558,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None)
     t = TEXTOS[lang]
     now = datetime.now()
     is_morning = now.hour < 14
+
     if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
@@ -567,9 +582,19 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None)
 
     lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
-    uv_text = f"{uv_max} ({uv_explanation(uv_max, lang)})"
+    uv_text = uv_explanation(uv_max, lang)
+
     desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
     consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
+
+    # FOOTER DINÁMICO
+    hour = now.hour
+    if hour < 8:
+        proximo = t["proximo_8"]
+    elif hour < 20:
+        proximo = t["proximo_20"]
+    else:
+        proximo = t["proximo_manana_8"]
 
     lines = [
         loc_name, "",
@@ -596,7 +621,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None)
         *consejos,
         "",
         t["separator"],
-        t["siguiente_8"] if is_morning else t["siguiente_20"],
+        proximo,
         "",
         t["footer"]
     ])
@@ -609,9 +634,10 @@ async def send_weather(context: ContextTypes.DEFAULT_TYPE):
     data, source, sea_temp = await get_real_weather(loc)
     text = build_weather_message(data, source, loc, lang, sea_temp)
     await context.bot.send_message(chat_id=CHAT_ID, text=text)
-    logging.info(f"✅ Enviado | {loc} | fuente={source}")
+    logging.info(f"✅ Enviado | {loc} | fuente={source} | {datetime.now().strftime('%H:%M')}")
 
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
+    logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
     await send_weather(context)
 
 # ====================== COMANDOS ======================
@@ -638,11 +664,15 @@ async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     row = []
     for p in PUEBLOS_ALFA:
         row.append(InlineKeyboardButton(p, callback_data=f"loc_{p}"))
-        if len(row) == 3: kb.append(row); row = []
+        if len(row) == 3:
+            kb.append(row)
+            row = []
     if row: kb.append(row)
-    kb.append([InlineKeyboardButton("MOTRIL 🏖️", callback_data="loc_MOTRIL"),
-               InlineKeyboardButton("ALMUÑÉCAR 🏖️", callback_data="loc_ALMUÑÉCAR"),
-               InlineKeyboardButton("SALOBREÑA 🏖️", callback_data="loc_SALOBREÑA")])
+    kb.append([
+        InlineKeyboardButton("MOTRIL 🏖️", callback_data="loc_MOTRIL"),
+        InlineKeyboardButton("ALMUÑÉCAR 🏖️", callback_data="loc_ALMUÑÉCAR"),
+        InlineKeyboardButton("SALOBREÑA 🏖️", callback_data="loc_SALOBREÑA"),
+    ])
     await update.message.reply_text(TEXTOS[lang]["cambiar"], reply_markup=InlineKeyboardMarkup(kb))
 
 async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -658,21 +688,30 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     app = ApplicationBuilder().token(TOKEN).build()
+
     async def post_init(application):
         await application.bot.delete_webhook(drop_pending_updates=True)
+        logging.info("Webhook eliminado - polling activo")
+
     app.post_init = post_init
+
     app.add_handler(CommandHandler("start", cmd_idioma))
     app.add_handler(CommandHandler("idioma", cmd_idioma))
     app.add_handler(CommandHandler("poblacion", cmd_poblacion))
     app.add_handler(CallbackQueryHandler(lang_callback, pattern="^lang_"))
     app.add_handler(CallbackQueryHandler(loc_callback, pattern="^loc_"))
+
     jq = app.job_queue
+
     if MODO_PRUEBA:
         jq.run_repeating(weather_job, interval=300, first=5)
+        logging.info("Modo prueba: envíos cada 5 minutos")
     else:
         jq.run_daily(weather_job, time=time(hour=8, minute=0))
         jq.run_daily(weather_job, time=time(hour=20, minute=0))
-    logging.info("✅ BOT FINAL LISTO | UV con FPS/SPF + rango recomendado | Temperatura mar real en playas | Descripciones reales dinámicas")
+        logging.info("Jobs diarios programados: 8:00 y 20:00")
+
+    logging.info("Bot iniciado correctamente")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
