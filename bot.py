@@ -51,15 +51,9 @@ def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
     cur = conn.cursor()
     sets = []
     params = []
-    if lang is not None:
-        sets.append("lang=?")
-        params.append(lang)
-    if location is not None:
-        sets.append("location=?")
-        params.append(location)
-    if chat_id is not None:
-        sets.append("chat_id=?")
-        params.append(chat_id)
+    if lang is not None: sets.append("lang=?"); params.append(lang)
+    if location is not None: sets.append("location=?"); params.append(location)
+    if chat_id is not None: sets.append("chat_id=?"); params.append(chat_id)
     if sets:
         query = f"UPDATE users SET {', '.join(sets)} WHERE user_id=?"
         params.append(user_id)
@@ -159,6 +153,7 @@ TEXTOS = {
         "brief_title": "Pronóstico breve próximos 3 días:",
         "brief_days": ["Mañana", "Pasado mañana", "En 3 días"],
         "brief_format": "• {day_label}: Máx {max_t}°C Mín {min_t}°C Lluvia {rain_prob}% Viento {wind_kmh} km/h",
+        "actualizar_cmd": "Para ver el tiempo actual pulse /actualizar",
     },
     "EN": {
         "idioma_cmd": "/language", "poblacion_cmd": "/location",
@@ -228,6 +223,7 @@ TEXTOS = {
         "brief_title": "Brief forecast for the next 3 days:",
         "brief_days": ["Tomorrow", "Day after tomorrow", "In 3 days"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Rain {rain_prob}% Wind {wind_kmh} km/h",
+        "actualizar_cmd": "To see the current weather press /actualizar",
     },
     "NL": {
         "idioma_cmd": "/taal", "poblacion_cmd": "/locatie",
@@ -297,6 +293,7 @@ TEXTOS = {
         "brief_title": "Korte voorspelling voor de komende 3 dagen:",
         "brief_days": ["Morgen", "Overmorgen", "Over 3 dagen"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
+        "actualizar_cmd": "Om het huidige weer te zien druk op /actualizar",
     },
     "DE": {
         "idioma_cmd": "/sprache", "poblacion_cmd": "/standort",
@@ -366,6 +363,7 @@ TEXTOS = {
         "brief_title": "Kurze Vorhersage für die nächsten 3 Tage:",
         "brief_days": ["Morgen", "Übermorgen", "In 3 Tagen"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
+        "actualizar_cmd": "Um das aktuelle Wetter zu sehen drücken Sie /actualizar",
     },
     "FR": {
         "idioma_cmd": "/langue", "poblacion_cmd": "/localisation",
@@ -435,6 +433,7 @@ TEXTOS = {
         "brief_title": "Prévision brève pour les 3 prochains jours :",
         "brief_days": ["Demain", "Après-demain", "Dans 3 jours"],
         "brief_format": "• {day_label} : Max {max_t}°C Min {min_t}°C Pluie {rain_prob}% Vent {wind_kmh} km/h",
+        "actualizar_cmd": "Pour connaître le temps actuel appuyez sur /actualizar",
     },
     "IT": {
         "idioma_cmd": "/lingua", "poblacion_cmd": "/posizione",
@@ -504,6 +503,7 @@ TEXTOS = {
         "brief_title": "Previsione breve per i prossimi 3 giorni:",
         "brief_days": ["Domani", "Dopodomani", "Tra 3 giorni"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Pioggia {rain_prob}% Vento {wind_kmh} km/h",
+        "actualizar_cmd": "Per conoscere il tempo attuale premi /actualizar",
     }
 }
 
@@ -599,7 +599,7 @@ async def get_real_weather(loc_name: str):
     except: pass
     return None, "fallback", None, 60
 
-# ====================== MENSAJE FINAL ======================
+# ====================== MENSAJE FINAL (con el comando /actualizar) ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
     now = datetime.now()
@@ -681,7 +681,15 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             wind_kmh=round(d["wind_speed_10m_max"][day_idx])
         ))
 
-    lines.extend(["", t["info_envios"], "", t["footer"]])
+    # ← AQUÍ ESTÁ LA LÍNEA QUE PEDISTE
+    lines.extend([
+        "",
+        t["info_envios"],
+        "",
+        t["actualizar_cmd"],
+        "",
+        t["footer"]
+    ])
     return "\n".join(lines)
 
 # ====================== ENVÍO ======================
@@ -782,7 +790,7 @@ def main():
 
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Caché + Pronóstico 3 días + Todos comandos")
+    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Comando /actualizar al final de cada mensaje")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
