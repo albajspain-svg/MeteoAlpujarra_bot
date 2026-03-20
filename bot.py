@@ -711,8 +711,8 @@ async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
 
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
-    for u in get_all_users():
-    if u["chat_id"]:
+    for u in users:
+    pass  # placeholder para no tener bloque vacío
         await send_user_weather(context, u["user_id"])
         await asyncio.sleep(0.3)
 
