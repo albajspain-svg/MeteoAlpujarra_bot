@@ -18,7 +18,8 @@ MODO_PRUEBA = False
 DB_PATH = "users.db"
 
 # ====================== CACHÉ ANTI-429 ======================
-weather_cache = {} user_last_request = {}
+weather_cache = {}
+user_last_request = {}
 
 # ====================== BBDD USUARIOS ======================
 def init_db():
