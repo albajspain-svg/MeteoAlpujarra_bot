@@ -597,7 +597,14 @@ async def get_real_weather(loc_name: str):
                 humidity = data["current"].get("relative_humidity_2m", 60)
                 weather_cache[loc_name] = {"data": data, "sea": sea_temp, "hum": humidity, "ts": now_ts}
                 return data, "openmeteo", sea_temp, humidity
-    except: pass
+    except:
+        weather_cache[loc_name] = {
+            "data": None,
+            "sea": None,
+            "hum": 60,
+            "ts": now_ts
+        }
+        pass
     return None, "fallback", None, 60
 
 # ====================== MENSAJE FINAL ======================
