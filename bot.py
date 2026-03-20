@@ -1,6 +1,7 @@
 import logging
 import os
 import sqlite3
+import time
 from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -14,7 +15,10 @@ MODO_PRUEBA = False  # ← False = 8:00 y 20:00 reales
 
 DB_PATH = "users.db"
 
-# ====================== BBDD USUARIOS (PERSISTENTE) ======================
+# ====================== CACHÉ CLIMA (para evitar 429) ======================
+weather_cache = {}  # { "LOCACION": {"data": ..., "sea": ..., "hum": ..., "time": timestamp} }
+
+# ====================== BBDD USUARIOS ======================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('''
@@ -36,7 +40,6 @@ def get_user_data(user_id: int):
     if row:
         conn.close()
         return {"lang": row[0], "location": row[1], "chat_id": row[2]}
-    # Nuevo usuario
     cur.execute("INSERT INTO users (user_id, lang, location) VALUES (?, 'ES', 'ÓRGIVA')", (user_id,))
     conn.commit()
     conn.close()
@@ -561,12 +564,18 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
     else: cons.append(t["consejo_mountain"])
     return cons
 
-# ====================== OBTENER DATOS ======================
+# ====================== OBTENER DATOS CON CACHÉ ======================
 async def get_real_weather(loc_name: str):
+    now_ts = time.time()
+    if loc_name in weather_cache and now_ts - weather_cache[loc_name]["time"] < 1200:  # 20 minutos
+        cached = weather_cache[loc_name]
+        return cached["data"], "openmeteo", cached["sea"], cached["hum"]
+
     if loc_name in ["LOS TABLONES", "EL MORREÓN", "LAS BARRERAS", "BAYACAS"]:
         lat, lon = COORDS["ÓRGIVA"]
     else:
         lat, lon = COORDS.get(loc_name, (36.90, -3.42))
+
     sea_temp = None
     if loc_name in COASTAL_PUEBLOS:
         try:
@@ -574,16 +583,25 @@ async def get_real_weather(loc_name: str):
                 r = await client.get(f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&daily=sea_surface_temperature_max&timezone=Europe/Madrid")
                 if r.status_code == 200:
                     sea_temp = round(r.json()["daily"]["sea_surface_temperature_max"][0])
-        except: pass
+        except:
+            pass
+
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,uv_index,precipitation_probability&hourly=temperature_2m,precipitation_probability,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,wind_speed_10m_max&timezone=Europe/Madrid&forecast_days=4"
+
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get(url)
             if r.status_code == 200:
                 data = r.json()
                 humidity = data["current"].get("relative_humidity_2m", 60)
+                weather_cache[loc_name] = {"data": data, "sea": sea_temp, "hum": humidity, "time": now_ts}
                 return data, "openmeteo", sea_temp, humidity
-    except: pass
+            elif r.status_code == 429:
+                logging.warning(f"429 Rate limit para {loc_name} - usando caché o fallback")
+    except Exception as e:
+        logging.error(f"Error API Open-Meteo {loc_name}: {e}")
+
+    # Fallback
     return None, "fallback", None, 60
 
 # ====================== MENSAJE FINAL ======================
@@ -642,6 +660,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         t["fase_lunar"].format(lunar=lunar),
     ]
 
+    # LLUVIA POR HORAS
     if rain_prob > 20 and source == "openmeteo" and data:
         rain_times = []
         times = data["hourly"]["time"]
@@ -660,6 +679,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         "", "📅 " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
     ])
 
+    # PRONÓSTICO BREVE 3 DÍAS (siempre se muestra)
     lines.append(t["brief_title"])
     brief_days_list = t["brief_days"]
     for k in range(3):
@@ -774,7 +794,7 @@ def main():
 
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
-    logging.info("✅ BOT INICIADO | Multi-usuario con BBDD SQLite | Todos idiomas completos | Pronóstico 3 días + lluvia por horas | Confirmación con /poblacion")
+    logging.info("✅ BOT INICIADO | Caché anti-429 + Multi-usuario + Todos idiomas completos + Pronóstico 3 días")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
