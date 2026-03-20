@@ -794,7 +794,7 @@ def main():
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
 
     logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | /actualizar al final | Anti-409 mejorado")
-    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
