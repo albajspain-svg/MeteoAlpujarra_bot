@@ -632,7 +632,10 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-        d = {"temperature_2m_max": [23]*4, "temperature_2m_min": [12]*4, "precipitation_probability_max": [25]*4, "wind_speed_10m_max": [20]*4}
+        d = {"temperature_2m_max": [23]*5, 
+         "temperature_2m_min": [12]*5, 
+         "precipitation_probability_max": [25]*5, 
+         "wind_speed_10m_max": [20]*5}
     lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
     uv_text = uv_explanation(uv_max, lang)
