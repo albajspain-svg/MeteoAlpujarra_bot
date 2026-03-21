@@ -84,8 +84,8 @@ TEXTOS = {
         "cambiar": "Elige tu localidad:",
         "buscando": "✅ Cambiado a **{loc}**\nBuscando datos actualizados...\nEspere un momento.\n📍 Para cambiar de nuevo usa /poblacion",
         "footer": "🌍 Cambiar idioma: /start\n📍 Cambiar localización: /poblacion",
-        "siguiente_8": "Siguiente mensaje a las 20:00\n¡Que tengas un buen día!",
-        "siguiente_20": "Siguiente mensaje a las 8:00\n¡Que tengas una buena noche!",
+        "siguiente_8": "Siguiente mensaje a las 20:30\n¡Que tengas un buen día!",
+        "siguiente_20": "Siguiente mensaje a las 8:30\n¡Que tengas una buena noche!",
         "temp_actual_title": "🌡️ Temperatura actual:",
         "sensacion": " (sensación {sens}°C).",
         "estado_actual": "☀️ Estado actual: {estado}",
@@ -140,7 +140,7 @@ TEXTOS = {
         "uv_extremo": "Extremo (FPS 50+ y evitar exposición recomendado)",
         "sea_temp": "🌊 Temperatura del agua del mar: {sea}°C.",
         "humedad": "💧 Humedad relativa: {hum}%.",
-        "info_envios": "Los pronósticos se envían automáticamente a las 8am para el día corriente y a las 20h para el día siguiente.",
+        "info_envios": "Los pronósticos se envían automáticamente a las 8:30 para el día corriente y a las 20:30 para el día siguiente.",
         "rain_hours": "☔ Lluvia posible a las: {hours}.",
         "brief_title": "Pronóstico breve próximos 3 días:",
         "brief_days": ["Mañana", "Pasado mañana", "En 3 días"],
@@ -154,8 +154,8 @@ TEXTOS = {
         "cambiar": "Choose your location:",
         "buscando": "✅ Changed to **{loc}**\nFetching updated data...\nPlease wait.\n📍 To change again use /poblacion",
         "footer": "🌍 Change language: /start\n📍 Change location: /poblacion",
-        "siguiente_8": "Next message at 20:00\nHave a great day!",
-        "siguiente_20": "Next message at 8:00\nGood night!",
+        "siguiente_8": "Next message at 20:30\nHave a great day!",
+        "siguiente_20": "Next message at 8:30\nGood night!",
         "temp_actual_title": "🌡️ Current temperature:",
         "sensacion": " (feels like {sens}°C).",
         "estado_actual": "☀️ Current condition: {estado}",
@@ -210,7 +210,7 @@ TEXTOS = {
         "uv_extremo": "Extreme (SPF 50+ and avoid exposure recommended)",
         "sea_temp": "🌊 Sea water temperature: {sea}°C.",
         "humedad": "💧 Relative humidity: {hum}%.",
-        "info_envios": "Forecasts are sent automatically at 8am for the current day and at 20h for the next day.",
+        "info_envios": "Forecasts are sent automatically at 8:30 for the current day and at 20:30 for the next day.",
         "rain_hours": "☔ Possible rain around: {hours}.",
         "brief_title": "Brief forecast for the next 3 days:",
         "brief_days": ["Tomorrow", "Day after tomorrow", "In 3 days"],
@@ -224,8 +224,8 @@ TEXTOS = {
         "cambiar": "Kies je locatie:",
         "buscando": "✅ Gewijzigd naar **{loc}**\nGegevens ophalen...\nEen moment geduld.\n📍 Om opnieuw te wijzigen gebruik /poblacion",
         "footer": "🌍 Taal wijzigen: /start\n📍 Locatie wijzigen: /poblacion",
-        "siguiente_8": "Volgende bericht om 20:00\nFijne dag!",
-        "siguiente_20": "Volgende bericht om 8:00\nGoede nacht!",
+        "siguiente_8": "Volgende bericht om 20:30\nFijne dag!",
+        "siguiente_20": "Volgende bericht om 8:30\nGoede nacht!",
         "temp_actual_title": "🌡️ Huidige temperatuur:",
         "sensacion": " (voelt als {sens}°C).",
         "estado_actual": "☀️ Huidige toestand: {estado}",
@@ -242,7 +242,7 @@ TEXTOS = {
         "desc_day": "Dagbeschrijving:",
         "consejos_title": "Tips:",
         "consejo_uv": "• Gebruik zonnebrandcrème SPF 50+, zonnebril en vermijd direct zonlicht tussen 12:00 en 16:00.",
-        "consejo_rain": "• Neem een paraplu of regenjas mee; regen kan plotseling komen.",
+        "consejo_rain": "• Neem een paraplu or regenjas mee; regen kan plotseling komen.",
         "consejo_windcold": "• Een lichte jas is essentieel; beschermt tegen wind en kou.",
         "consejo_ligera": "• Lichte en comfortabele kleding is voldoende voor de hele dag.",
         "consejo_capa": "• Neem een extra laag mee voor de middag of avond vanwege temperatuurwisselingen.",
@@ -280,7 +280,7 @@ TEXTOS = {
         "uv_extremo": "Extreem (SPF 50+ en blootstelling vermijden aanbevolen)",
         "sea_temp": "🌊 Temperatuur van het zeewater: {sea}°C.",
         "humedad": "💧 Relatieve vochtigheid: {hum}%.",
-        "info_envios": "De voorspellingen worden automatisch verzonden om 8:00 voor de huidige dag en om 20:00 voor de volgende dag.",
+        "info_envios": "De voorspellingen worden automatisch verzonden om 8:30 voor de huidige dag en om 20:30 voor de volgende dag.",
         "rain_hours": "☔ Mogelijke regen rond: {hours}.",
         "brief_title": "Korte voorspelling voor de komende 3 dagen:",
         "brief_days": ["Morgen", "Overmorgen", "Over 3 dagen"],
@@ -294,8 +294,8 @@ TEXTOS = {
         "cambiar": "Wählen Sie Ihren Standort:",
         "buscando": "✅ Geändert zu **{loc}**\nDaten abrufen...\nBitte warten.\n📍 Zum erneuten Ändern verwenden Sie /poblacion",
         "footer": "🌍 Sprache ändern: /start\n📍 Standort ändern: /poblacion",
-        "siguiente_8": "Nächste Nachricht um 20:00\nSchönen Tag!",
-        "siguiente_20": "Nächste Nachricht um 8:00\nGute Nacht!",
+        "siguiente_8": "Nächste Nachricht um 20:30\nSchönen Tag!",
+        "siguiente_20": "Nächste Nachricht um 8:30\nGute Nacht!",
         "temp_actual_title": "🌡️ Aktuelle Temperatur:",
         "sensacion": " (fühlt sich an wie {sens}°C).",
         "estado_actual": "☀️ Aktueller Zustand: {estado}",
@@ -350,7 +350,7 @@ TEXTOS = {
         "uv_extremo": "Extrem (SPF 50+ und Exposition vermeiden empfohlen)",
         "sea_temp": "🌊 Wassertemperatur des Meeres: {sea}°C.",
         "humedad": "💧 Relative Luftfeuchtigkeit: {hum}%.",
-        "info_envios": "Die Vorhersagen werden automatisch um 8:00 für den aktuellen Tag und um 20:00 für den nächsten Tag gesendet.",
+        "info_envios": "Die Vorhersagen werden automatisch um 8:30 für den aktuellen Tag und um 20:30 für den nächsten Tag gesendet.",
         "rain_hours": "☔ Mögliche Regen um: {hours}.",
         "brief_title": "Kurze Vorhersage für die nächsten 3 Tage:",
         "brief_days": ["Morgen", "Übermorgen", "In 3 Tagen"],
@@ -364,8 +364,8 @@ TEXTOS = {
         "cambiar": "Choisissez votre localisation :",
         "buscando": "✅ Changé en **{loc}**\nRécupération des données...\nVeuillez patienter.\n📍 Pour changer à nouveau utilisez /poblacion",
         "footer": "🌍 Changer de langue : /start\n📍 Changer de localisation : /poblacion",
-        "siguiente_8": "Prochain message à 20:00\nBonne journée !",
-        "siguiente_20": "Prochain message à 8:00\nBonne nuit !",
+        "siguiente_8": "Prochain message à 20:30\nBonne journée !",
+        "siguiente_20": "Prochain message à 8:30\nBonne nuit !",
         "temp_actual_title": "🌡️ Température actuelle :",
         "sensacion": " (ressenti {sens}°C).",
         "estado_actual": "☀️ Condition actuelle : {estado}",
@@ -390,7 +390,7 @@ TEXTOS = {
         "consejo_mountain": "• Dans les zones de montagne, préparez-vous aux changements de température nocturnes.",
         "separator": "───────────────────",
         "estado_despejado": "Dégagé avec brise.",
-        "estado_nublado": "Nuageux with averses possibles.",
+        "estado_nublado": "Nuageux avec averses possibles.",
         "estado_fallback": "Partiellement nuageux.",
         "luna_llena": "Pleine lune (95-100%)",
         "luna_creciente": "Croissant de lune (60-70%)",
@@ -420,7 +420,7 @@ TEXTOS = {
         "uv_extremo": "Extrême (FPS 50+ et éviter l'exposition recommandé)",
         "sea_temp": "🌊 Température de l'eau de mer : {sea}°C.",
         "humedad": "💧 Humidité relative : {hum}%.",
-        "info_envios": "Les prévisions sont envoyées automatiquement à 8h pour le jour courant et à 20h pour le jour suivant.",
+        "info_envios": "Les prévisions sont envoyées automatiquement à 8:30 pour le jour courant et à 20:30 pour le jour suivant.",
         "rain_hours": "☔ Pluie possible vers : {hours}.",
         "brief_title": "Prévision brève pour les 3 prochains jours :",
         "brief_days": ["Demain", "Après-demain", "Dans 3 jours"],
@@ -434,8 +434,8 @@ TEXTOS = {
         "cambiar": "Scegli la tua località:",
         "buscando": "✅ Cambiato a **{loc}**\nRecupero dati aggiornati...\nAttendi un momento.\n📍 Per cambiare di nuovo usa /poblacion",
         "footer": "🌍 Cambia lingua: /start\n📍 Cambia località: /poblacion",
-        "siguiente_8": "Prossimo messaggio alle 20:00\nBuona giornata!",
-        "siguiente_20": "Prossimo messaggio alle 8:00\nBuona notte!",
+        "siguiente_8": "Prossimo messaggio alle 20:30\nBuona giornata!",
+        "siguiente_20": "Prossimo messaggio alle 8:30\nBuona notte!",
         "temp_actual_title": "🌡️ Temperatura attuale:",
         "sensacion": " (percepita {sens}°C).",
         "estado_actual": "☀️ Condizione attuale: {estado}",
@@ -490,7 +490,7 @@ TEXTOS = {
         "uv_extremo": "Estremo (SPF 50+ e evitare esposizione consigliato)",
         "sea_temp": "🌊 Temperatura dell'acqua del mare: {sea}°C.",
         "humedad": "💧 Umidità relativa: {hum}%.",
-        "info_envios": "Le previsioni vengono inviate automaticamente alle 8:00 per il giorno corrente e alle 20:00 per il giorno successivo.",
+        "info_envios": "Le previsioni vengono inviate automaticamente alle 8:30 per il giorno corrente e alle 20:30 per il giorno successivo.",
         "rain_hours": "☔ Pioggia possibile intorno alle: {hours}.",
         "brief_title": "Previsione breve per i prossimi 3 giorni:",
         "brief_days": ["Domani", "Dopodomani", "Tra 3 giorni"],
@@ -761,19 +761,10 @@ def main():
     if MODO_PRUEBA:
         jq.run_repeating(weather_job, interval=300, first=5)
     else:
-        jq.run_daily(weather_job, time=dt_time(hour=8, minute=0))
-        jq.run_daily(weather_job, time=dt_time(hour=20, minute=0))
-    # === ENVÍO EXCEPCIONAL HOY A LAS 8:12 (solo si se deploya antes de esa hora) ===
-    now = datetime.now()
-    target = now.replace(hour=8, minute=12, second=0, microsecond=0)
-    if now < target:
-        delay_seconds = (target - now).total_seconds()
-        jq.run_once(weather_job, when=delay_seconds)
-        logging.info(f"✅ Job excepcional HOY programado a las 8:12 (en {int(delay_seconds)} segundos)")
-    else:
-        logging.info("ℹ️  Job excepcional de las 8:12 ya pasó hoy, se omite")
+        jq.run_daily(weather_job, time=dt_time(hour=8, minute=30))   # 8:30 España
+        jq.run_daily(weather_job, time=dt_time(hour=20, minute=30))  # 20:30 España
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Envíos automáticos 8:00 y 20:00 + excepcional 8:12 HOY")
+    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Envíos automáticos FIJOS a las 8:30 y 20:30 (hora España) todos los días")
     app.run_polling(drop_pending_updates=True)
 if __name__ == "__main__":
     main()
