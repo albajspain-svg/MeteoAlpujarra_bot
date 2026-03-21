@@ -7,15 +7,19 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import httpx
+from zoneinfo import ZoneInfo
+
 # ====================== CONFIG ======================
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ Falta BOT_TOKEN en Variables de Railway")
 MODO_PRUEBA = False
 DB_PATH = "users.db"
+
 # ====================== CACHÉ ANTI-429 ======================
 weather_cache = {}
 user_last_request = {}
+
 # ====================== BBDD USUARIOS ======================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -29,6 +33,7 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
 def get_user_data(user_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -41,6 +46,7 @@ def get_user_data(user_id: int):
     conn.commit()
     conn.close()
     return {"lang": "ES", "location": "ÓRGIVA", "chat_id": None}
+
 def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -58,6 +64,7 @@ def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
                         (user_id, lang or "ES", location or "ÓRGIVA", chat_id))
     conn.commit()
     conn.close()
+
 def get_all_users():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -65,6 +72,7 @@ def get_all_users():
     rows = cur.fetchall()
     conn.close()
     return [{"user_id": r[0], "lang": r[1], "location": r[2], "chat_id": r[3]} for r in rows]
+
 # ====================== LOCALIDADES ======================
 COORDS = {
     "BAYACAS": (36.90, -3.42), "BUBIÓN": (36.90, -3.42), "CAPILEIRA": (36.90, -3.42),
@@ -75,6 +83,7 @@ COORDS = {
 }
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
 PUEBLOS_ALFA = ["BAYACAS", "BUBIÓN", "CAPILEIRA", "EL MORREÓN", "LANJARÓN", "LAS BARRERAS", "LOS TABLONES", "ÓRGIVA", "PAMPANEIRA", "TREVÉLEZ", "UGÍJAR", "YEGEN"]
+
 # ====================== TEXTOS COMPLETOS ======================
 TEXTOS = {
     "ES": {
@@ -112,10 +121,9 @@ TEXTOS = {
         "estado_despejado": "Despejado con brisa.",
         "estado_nublado": "Nublado con posibles chubascos.",
         "estado_fallback": "Parcialmente nublado.",
-        "luna_llena": "Luna llena (95-100%)",
-        "luna_creciente": "Cuarto creciente (60-70%)",
-        "luna_fallback": "Luna llena (96%)",
-        "luna_nueva": "Luna nueva (0-5%)",
+        "luna_llena": "Luna llena",
+        "luna_creciente": "Cuarto creciente",
+        "luna_nueva": "Luna nueva",
         "wind_desc_calma": "calma total",
         "wind_desc_ligera": "brisa ligera",
         "wind_desc_moderada": "brisa moderada",
@@ -182,10 +190,9 @@ TEXTOS = {
         "estado_despejado": "Clear with breeze.",
         "estado_nublado": "Cloudy with possible showers.",
         "estado_fallback": "Partly cloudy.",
-        "luna_llena": "Full moon (95-100%)",
-        "luna_creciente": "Waxing crescent (60-70%)",
-        "luna_fallback": "Full moon (96%)",
-        "luna_nueva": "New moon (0-5%)",
+        "luna_llena": "Full moon",
+        "luna_creciente": "Waxing crescent",
+        "luna_nueva": "New moon",
         "wind_desc_calma": "total calm",
         "wind_desc_ligera": "light breeze",
         "wind_desc_moderada": "moderate breeze",
@@ -242,7 +249,7 @@ TEXTOS = {
         "desc_day": "Dagbeschrijving:",
         "consejos_title": "Tips:",
         "consejo_uv": "• Gebruik zonnebrandcrème SPF 50+, zonnebril en vermijd direct zonlicht tussen 12:00 en 16:00.",
-        "consejo_rain": "• Neem een paraplu or regenjas mee; regen kan plotseling komen.",
+        "consejo_rain": "• Neem een paraplu of regenjas mee; regen kan plotseling komen.",
         "consejo_windcold": "• Een lichte jas is essentieel; beschermt tegen wind en kou.",
         "consejo_ligera": "• Lichte en comfortabele kleding is voldoende voor de hele dag.",
         "consejo_capa": "• Neem een extra laag mee voor de middag of avond vanwege temperatuurwisselingen.",
@@ -252,10 +259,9 @@ TEXTOS = {
         "estado_despejado": "Helder met bries.",
         "estado_nublado": "Bewolkt met mogelijke buien.",
         "estado_fallback": "Gedeeltelijk bewolkt.",
-        "luna_llena": "Volle maan (95-100%)",
-        "luna_creciente": "Wassende maan (60-70%)",
-        "luna_fallback": "Volle maan (96%)",
-        "luna_nueva": "Nieuwe maan (0-5%)",
+        "luna_llena": "Volle maan",
+        "luna_creciente": "Wassende maan",
+        "luna_nueva": "Nieuwe maan",
         "wind_desc_calma": "totale kalmte",
         "wind_desc_ligera": "lichte bries",
         "wind_desc_moderada": "matige bries",
@@ -322,10 +328,9 @@ TEXTOS = {
         "estado_despejado": "Klar mit Brise.",
         "estado_nublado": "Bewölkt mit möglichen Schauern.",
         "estado_fallback": "Teilweise bewölkt.",
-        "luna_llena": "Vollmond (95-100%)",
-        "luna_creciente": "Zunehmender Mond (60-70%)",
-        "luna_fallback": "Vollmond (96%)",
-        "luna_nueva": "Neumond (0-5%)",
+        "luna_llena": "Vollmond",
+        "luna_creciente": "Zunehmender Mond",
+        "luna_nueva": "Neumond",
         "wind_desc_calma": "völlige Ruhe",
         "wind_desc_ligera": "leichte Brise",
         "wind_desc_moderada": "mäßige Brise",
@@ -392,10 +397,9 @@ TEXTOS = {
         "estado_despejado": "Dégagé avec brise.",
         "estado_nublado": "Nuageux avec averses possibles.",
         "estado_fallback": "Partiellement nuageux.",
-        "luna_llena": "Pleine lune (95-100%)",
-        "luna_creciente": "Croissant de lune (60-70%)",
-        "luna_fallback": "Pleine lune (96%)",
-        "luna_nueva": "Nouvelle lune (0-5%)",
+        "luna_llena": "Pleine lune",
+        "luna_creciente": "Croissant de lune",
+        "luna_nueva": "Nouvelle lune",
         "wind_desc_calma": "calme total",
         "wind_desc_ligera": "brise légère",
         "wind_desc_moderada": "brise modérée",
@@ -462,10 +466,9 @@ TEXTOS = {
         "estado_despejado": "Sereno con brezza.",
         "estado_nublado": "Nuvoloso con possibili rovesci.",
         "estado_fallback": "Parzialmente nuvoloso.",
-        "luna_llena": "Luna piena (95-100%)",
-        "luna_creciente": "Luna crescente (60-70%)",
-        "luna_fallback": "Luna piena (96%)",
-        "luna_nueva": "Luna nuova (0-5%)",
+        "luna_llena": "Luna piena",
+        "luna_creciente": "Luna crescente",
+        "luna_nueva": "Luna nuova",
         "wind_desc_calma": "calma totale",
         "wind_desc_ligera": "brezza leggera",
         "wind_desc_moderada": "brezza moderata",
@@ -498,6 +501,7 @@ TEXTOS = {
         "actualizar_cmd": "Per conoscere il tempo attuale premi /actualizar",
     }
 }
+
 # ====================== FUNCIONES AUXILIARES ======================
 def get_lunar_phase(now: datetime, lang: str) -> str:
     t = TEXTOS[lang]
@@ -513,20 +517,19 @@ def get_lunar_phase(now: datetime, lang: str) -> str:
     jd = c + d + e + f - 1524.5
     moon_age = (jd - 2451549.5) % 29.53058867
     
-    # Porcentaje real de iluminación (0-100%)
     percent = round((moon_age / 29.53058867) * 100)
     if percent > 100:
         percent = 100
     
-    # Usa TODOS los nombres de fases que ya tienes en TEXTOS + porcentaje real
     if moon_age < 2.5 or moon_age > 27.0:
-        phase = t["luna_nueva"].split(" (")[0]          # Luna nueva
+        phase = t["luna_nueva"]
     elif 12.0 < moon_age < 17.0:
-        phase = t["luna_llena"].split(" (")[0]          # Luna llena
+        phase = t["luna_llena"]
     else:
-        phase = t["luna_creciente"].split(" (")[0]      # Cuarto creciente
+        phase = t["luna_creciente"]
     
     return f"{phase} ({percent}%)"
+
 def wind_description(kmh: int, lang: str) -> str:
     t = TEXTOS[lang]
     if kmh < 1: return t["wind_desc_calma"]
@@ -535,6 +538,7 @@ def wind_description(kmh: int, lang: str) -> str:
     if kmh < 29: return t["wind_desc_fuerte"]
     if kmh < 39: return t["wind_desc_muy_fuerte"]
     return t["wind_desc_tormenta"]
+
 def uv_explanation(uv: int, lang: str) -> str:
     t = TEXTOS[lang]
     if uv <= 2: return f"{uv} ⚪ {t['uv_bajo']}"
@@ -542,6 +546,7 @@ def uv_explanation(uv: int, lang: str) -> str:
     if uv <= 7: return f"{uv} 🟡 {t['uv_alto']}"
     if uv <= 10: return f"{uv} 🟠 {t['uv_muy_alto']}"
     return f"{uv} 🔴 {t['uv_extremo']}"
+
 def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
     t = TEXTOS[lang]
     lines = []
@@ -557,6 +562,7 @@ def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, lo
     if loc_name in COASTAL_PUEBLOS: lines.append(t["desc_coast"])
     else: lines.append(t["desc_mountain"])
     return lines
+
 def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name: str, lang: str) -> list:
     t = TEXTOS[lang]
     cons = []
@@ -568,6 +574,7 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
     if loc_name in COASTAL_PUEBLOS: cons.append(t["consejo_coast"])
     else: cons.append(t["consejo_mountain"])
     return cons
+
 # ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
     now_ts = time_module.time()
@@ -596,14 +603,9 @@ async def get_real_weather(loc_name: str):
                 weather_cache[loc_name] = {"data": data, "sea": sea_temp, "hum": humidity, "ts": now_ts}
                 return data, "openmeteo", sea_temp, humidity
     except:
-        weather_cache[loc_name] = {
-            "data": None,
-            "sea": None,
-            "hum": 60,
-            "ts": now_ts
-        }
-        pass
+        weather_cache[loc_name] = {"data": None, "sea": None, "hum": 60, "ts": now_ts}
     return None, "fallback", None, 60
+
 # ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
@@ -687,6 +689,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         t["footer"]
     ])
     return "\n".join(lines)
+
 # ====================== ENVÍO ======================
 async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     u = get_user_data(user_id)
@@ -695,12 +698,29 @@ async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     text = build_weather_message(data, source, u["location"], u["lang"], sea_temp, humidity)
     await context.bot.send_message(chat_id=u["chat_id"], text=text)
     logging.info(f"✅ Enviado | {u['location']} | fuente={source} | user={user_id}")
+
 # ====================== JOB AUTOMÁTICO ======================
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Job automático ejecutado a las {datetime.now().strftime('%H:%M:%S')}")
-    for u in get_all_users():
-        await send_user_weather(context, u["user_id"])
+    users_list = get_all_users()
+    logging.info(f"🔄 Job ejecutado | Usuarios en DB: {len(users_list)} | Hora servidor: {datetime.now().strftime('%H:%M:%S')}")
+    sent = 0
+    for u in users_list:
+        if u["chat_id"]:
+            await send_user_weather(context, u["user_id"])
+            sent += 1
         await asyncio.sleep(0.3)
+    logging.info(f"✅ FINALIZADO: Enviados a {sent} usuarios")
+
+# ====================== CHECKER HORA ESPAÑA ======================
+async def spain_time_checker(context: ContextTypes.DEFAULT_TYPE):
+    madrid = datetime.now(ZoneInfo("Europe/Madrid"))
+    if madrid.hour == 8 and madrid.minute == 30:
+        logging.info("🕒 8:30 MADRID DETECTADO → Enviando pronóstico del día")
+        await weather_job(context)
+    elif madrid.hour == 20 and madrid.minute == 30:
+        logging.info("🕒 20:30 MADRID DETECTADO → Enviando pronóstico del día siguiente")
+        await weather_job(context)
+
 # ====================== COMANDOS ======================
 async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -712,6 +732,7 @@ async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_last_request[user_id] = now
     update_user_data(user_id, chat_id=chat_id)
     await send_user_weather(context, user_id)
+
 async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     update_user_data(user_id, chat_id=update.effective_chat.id)
@@ -722,6 +743,7 @@ async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🇫🇷 Français", callback_data="lang_FR"), InlineKeyboardButton("🇮🇹 Italiano", callback_data="lang_IT")],
     ]
     await update.message.reply_text("🌍 " + TEXTOS[lang]["idioma"], reply_markup=InlineKeyboardMarkup(kb))
+
 async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -731,6 +753,7 @@ async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = TEXTOS[new_lang]["bienvenido"].format(loc=get_user_data(user_id)["location"])
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
+
 async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     update_user_data(user_id, chat_id=update.effective_chat.id)
@@ -747,6 +770,7 @@ async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("SALOBREÑA 🏖️", callback_data="loc_SALOBREÑA")
     ])
     await update.message.reply_text(TEXTOS[lang]["cambiar"], reply_markup=InlineKeyboardMarkup(kb))
+
 async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -756,6 +780,7 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = TEXTOS[get_user_data(user_id)["lang"]]["buscando"].format(loc=loc)
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
+
 # ====================== MAIN ======================
 async def post_init(application):
     try:
@@ -764,6 +789,7 @@ async def post_init(application):
         await asyncio.sleep(3)
     except Exception as e:
         logging.warning(f"Error al borrar webhook: {e}")
+
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     init_db()
@@ -774,14 +800,28 @@ def main():
     app.add_handler(CommandHandler(["actualizar", "update"], cmd_actualizar))
     app.add_handler(CallbackQueryHandler(lang_callback, pattern="^lang_"))
     app.add_handler(CallbackQueryHandler(loc_callback, pattern="^loc_"))
+    
     jq = app.job_queue
+    
     if MODO_PRUEBA:
         jq.run_repeating(weather_job, interval=300, first=5)
     else:
-        jq.run_daily(weather_job, time=dt_time(hour=8, minute=30))   # 8:30 España
-        jq.run_daily(weather_job, time=dt_time(hour=20, minute=30))  # 20:30 España
+        # Checker diario (cada minuto chequea si son las 8:30 o 20:30 en España)
+        jq.run_repeating(spain_time_checker, interval=60, first=10)
+        
+        # Excepcional HOY a las 8:40
+        madrid_now = datetime.now(ZoneInfo("Europe/Madrid"))
+        target = madrid_now.replace(hour=8, minute=40, second=0, microsecond=0)
+        if madrid_now < target:
+            delay = (target - madrid_now).total_seconds()
+            jq.run_once(weather_job, when=delay)
+            logging.info(f"✅ JOB EXCEPCIONAL HOY a las 8:40 programado (en {int(delay)} segundos)")
+        else:
+            logging.info("ℹ️  Job excepcional 8:40 ya pasó hoy")
+
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Envíos automáticos FIJOS a las 8:30 y 20:30 (hora España) todos los días")
+    logging.info("✅ BOT INICIADO | Envíos diarios 8:30/20:30 + excepcional HOY 8:40")
     app.run_polling(drop_pending_updates=True)
+
 if __name__ == "__main__":
     main()
