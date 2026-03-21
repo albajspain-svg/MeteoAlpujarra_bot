@@ -390,7 +390,7 @@ TEXTOS = {
         "consejo_mountain": "• Dans les zones de montagne, préparez-vous aux changements de température nocturnes.",
         "separator": "───────────────────",
         "estado_despejado": "Dégagé avec brise.",
-        "estado_nublado": "Nuageux avec averses possibles.",
+        "estado_nublado": "Nuageux with averses possibles.",
         "estado_fallback": "Partiellement nuageux.",
         "luna_llena": "Pleine lune (95-100%)",
         "luna_creciente": "Croissant de lune (60-70%)",
@@ -763,17 +763,17 @@ def main():
     else:
         jq.run_daily(weather_job, time=dt_time(hour=8, minute=0))
         jq.run_daily(weather_job, time=dt_time(hour=20, minute=0))
-    # === ENVÍO EXCEPCIONAL HOY A LAS 8:10 (solo si se deploya antes de esa hora) ===
+    # === ENVÍO EXCEPCIONAL HOY A LAS 8:12 (solo si se deploya antes de esa hora) ===
     now = datetime.now()
-    target = now.replace(hour=8, minute=10, second=0, microsecond=0)
+    target = now.replace(hour=8, minute=12, second=0, microsecond=0)
     if now < target:
         delay_seconds = (target - now).total_seconds()
         jq.run_once(weather_job, when=delay_seconds)
-        logging.info(f"✅ Job excepcional HOY programado a las 8:10 (en {int(delay_seconds)} segundos)")
+        logging.info(f"✅ Job excepcional HOY programado a las 8:12 (en {int(delay_seconds)} segundos)")
     else:
-        logging.info("ℹ️  Job excepcional de las 8:10 ya pasó hoy, se omite")
+        logging.info("ℹ️  Job excepcional de las 8:12 ya pasó hoy, se omite")
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
-    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Envíos automáticos 8:00 y 20:00 + excepcional 8:10 HOY")
+    logging.info("✅ BOT INICIADO | TODOS IDIOMAS COMPLETOS | Envíos automáticos 8:00 y 20:00 + excepcional 8:12 HOY")
     app.run_polling(drop_pending_updates=True)
 if __name__ == "__main__":
     main()
