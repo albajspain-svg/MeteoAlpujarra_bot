@@ -502,14 +502,31 @@ TEXTOS = {
 def get_lunar_phase(now: datetime, lang: str) -> str:
     t = TEXTOS[lang]
     y, m, d = now.year, now.month, now.day
-    if m <= 2: y -= 1; m += 12
-    a = y // 100; b = a // 4; c = 2 - a + b
-    e = int(365.25 * (y + 4716)); f = int(30.6001 * (m + 1))
+    if m <= 2: 
+        y -= 1
+        m += 12
+    a = y // 100
+    b = a // 4
+    c = 2 - a + b
+    e = int(365.25 * (y + 4716))
+    f = int(30.6001 * (m + 1))
     jd = c + d + e + f - 1524.5
     moon_age = (jd - 2451549.5) % 29.53058867
-    if moon_age < 2.5 or moon_age > 27.0: return t["luna_nueva"]
-    elif 12.0 < moon_age < 17.0: return t["luna_llena"]
-    else: return t["luna_creciente"]
+    
+    # Porcentaje real de iluminación (0-100%)
+    percent = round((moon_age / 29.53058867) * 100)
+    if percent > 100:
+        percent = 100
+    
+    # Usa TODOS los nombres de fases que ya tienes en TEXTOS + porcentaje real
+    if moon_age < 2.5 or moon_age > 27.0:
+        phase = t["luna_nueva"].split(" (")[0]          # Luna nueva
+    elif 12.0 < moon_age < 17.0:
+        phase = t["luna_llena"].split(" (")[0]          # Luna llena
+    else:
+        phase = t["luna_creciente"].split(" (")[0]      # Cuarto creciente
+    
+    return f"{phase} ({percent}%)"
 def wind_description(kmh: int, lang: str) -> str:
     t = TEXTOS[lang]
     if kmh < 1: return t["wind_desc_calma"]
