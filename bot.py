@@ -8,18 +8,15 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import httpx
 from zoneinfo import ZoneInfo
-
 # ====================== CONFIG ======================
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ Falta BOT_TOKEN en Variables de Railway")
 MODO_PRUEBA = False
 DB_PATH = "users.db"
-
 # ====================== CACHÉ ANTI-429 ======================
 weather_cache = {}
 user_last_request = {}
-
 # ====================== BBDD USUARIOS ======================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -33,7 +30,6 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
-
 def get_user_data(user_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -46,7 +42,6 @@ def get_user_data(user_id: int):
     conn.commit()
     conn.close()
     return {"lang": "ES", "location": "ÓRGIVA", "chat_id": None}
-
 def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -64,7 +59,6 @@ def update_user_data(user_id: int, lang=None, location=None, chat_id=None):
                         (user_id, lang or "ES", location or "ÓRGIVA", chat_id))
     conn.commit()
     conn.close()
-
 def get_all_users():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -72,7 +66,6 @@ def get_all_users():
     rows = cur.fetchall()
     conn.close()
     return [{"user_id": r[0], "lang": r[1], "location": r[2], "chat_id": r[3]} for r in rows]
-
 # ====================== LOCALIDADES ======================
 COORDS = {
     "BAYACAS": (36.90, -3.42), "BUBIÓN": (36.90, -3.42), "CAPILEIRA": (36.90, -3.42),
@@ -83,7 +76,6 @@ COORDS = {
 }
 COASTAL_PUEBLOS = ["MOTRIL", "ALMUÑÉCAR", "SALOBREÑA"]
 PUEBLOS_ALFA = ["BAYACAS", "BUBIÓN", "CAPILEIRA", "EL MORREÓN", "LANJARÓN", "LAS BARRERAS", "LOS TABLONES", "ÓRGIVA", "PAMPANEIRA", "TREVÉLEZ", "UGÍJAR", "YEGEN"]
-
 # ====================== TEXTOS COMPLETOS ======================
 TEXTOS = {
     "ES": {
@@ -98,13 +90,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Temperatura actual:",
         "sensacion": " (sensación {sens}°C).",
         "estado_actual": "☀️ Estado actual: {estado}",
-        "prediccion_hoy": "Predicción para hoy",
-        "prediccion_manana": "Predicción para mañana",
+        "prediccion_hoy": "Predicción para hoy:",
+        "prediccion_manana": "Predicción para mañana:",
         "temp_max": "🔼 Temperatura máxima: {max_t}°C.",
         "temp_min": "🔽 Temperatura mínima: {min_t}°C.",
         "prob_lluvia": "☔ Probabilidad de lluvia: {rain_prob}%.",
         "int_viento": "🌬️ Viento: {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Intensidad UV máxima: {uv_text}.",
+        "int_uv": "Intensidad UV máxima: ",
         "fase_lunar": "Fase lunar: {lunar}.",
         "hora_puesta": "🌇 Hora puesta de sol",
         "hora_amanecer": "🌅 Hora amanecer",
@@ -148,6 +140,7 @@ TEXTOS = {
         "uv_extremo": "Extremo (FPS 50+ y evitar exposición recomendado)",
         "sea_temp": "🌊 Temperatura del agua del mar: {sea}°C.",
         "humedad": "💧 Humedad relativa: {hum}%.",
+        "uv_actual": "Índice UV actual: {uv}",
         "info_envios": "Los pronósticos se envían automáticamente a las 8:30 para el día corriente y a las 20:30 para el día siguiente.",
         "rain_hours": "☔ Lluvia posible a las: {hours}.",
         "brief_title": "Pronóstico breve próximos 3 días:",
@@ -167,13 +160,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Current temperature:",
         "sensacion": " (feels like {sens}°C).",
         "estado_actual": "☀️ Current condition: {estado}",
-        "prediccion_hoy": "Forecast for today",
-        "prediccion_manana": "Forecast for tomorrow",
+        "prediccion_hoy": "Forecast for today:",
+        "prediccion_manana": "Forecast for tomorrow:",
         "temp_max": "🔼 Maximum temperature: {max_t}°C.",
         "temp_min": "🔽 Minimum temperature: {min_t}°C.",
         "prob_lluvia": "☔ Rain probability: {rain_prob}%.",
         "int_viento": "🌬️ Wind: {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Maximum UV intensity: {uv_text}.",
+        "int_uv": "Maximum UV intensity: ",
         "fase_lunar": "Moon phase: {lunar}.",
         "hora_puesta": "🌇 Sunset time",
         "hora_amanecer": "🌅 Sunrise time",
@@ -217,6 +210,7 @@ TEXTOS = {
         "uv_extremo": "Extreme (SPF 50+ and avoid exposure recommended)",
         "sea_temp": "🌊 Sea water temperature: {sea}°C.",
         "humedad": "💧 Relative humidity: {hum}%.",
+        "uv_actual": "Current UV index: {uv}",
         "info_envios": "Forecasts are sent automatically at 8:30 for the current day and at 20:30 for the next day.",
         "rain_hours": "☔ Possible rain around: {hours}.",
         "brief_title": "Brief forecast for the next 3 days:",
@@ -236,13 +230,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Huidige temperatuur:",
         "sensacion": " (voelt als {sens}°C).",
         "estado_actual": "☀️ Huidige toestand: {estado}",
-        "prediccion_hoy": "Voorspelling voor vandaag",
-        "prediccion_manana": "Voorspelling voor morgen",
+        "prediccion_hoy": "Voorspelling voor vandaag:",
+        "prediccion_manana": "Voorspelling voor morgen:",
         "temp_max": "🔼 Maximum temperatuur: {max_t}°C.",
         "temp_min": "🔽 Minimum temperatuur: {min_t}°C.",
         "prob_lluvia": "☔ Kans op regen: {rain_prob}%.",
         "int_viento": "🌬️ Wind: {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Maximale UV-intensiteit: {uv_text}.",
+        "int_uv": "Maximale UV-intensiteit: ",
         "fase_lunar": "Maanfase: {lunar}.",
         "hora_puesta": "🌇 Zonsondergang",
         "hora_amanecer": "🌅 Zonsopgang",
@@ -286,6 +280,7 @@ TEXTOS = {
         "uv_extremo": "Extreem (SPF 50+ en blootstelling vermijden aanbevolen)",
         "sea_temp": "🌊 Temperatuur van het zeewater: {sea}°C.",
         "humedad": "💧 Relatieve vochtigheid: {hum}%.",
+        "uv_actual": "Huidige UV-index: {uv}",
         "info_envios": "De voorspellingen worden automatisch verzonden om 8:30 voor de huidige dag en om 20:30 voor de volgende dag.",
         "rain_hours": "☔ Mogelijke regen rond: {hours}.",
         "brief_title": "Korte voorspelling voor de komende 3 dagen:",
@@ -305,13 +300,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Aktuelle Temperatur:",
         "sensacion": " (fühlt sich an wie {sens}°C).",
         "estado_actual": "☀️ Aktueller Zustand: {estado}",
-        "prediccion_hoy": "Vorhersage für heute",
-        "prediccion_manana": "Vorhersage für morgen",
+        "prediccion_hoy": "Vorhersage für heute:",
+        "prediccion_manana": "Vorhersage für morgen:",
         "temp_max": "🔼 Höchsttemperatur: {max_t}°C.",
         "temp_min": "🔽 Tiefsttemperatur: {min_t}°C.",
         "prob_lluvia": "☔ Regenwahrscheinlichkeit: {rain_prob}%.",
         "int_viento": "🌬️ Wind: {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Maximale UV-Intensität: {uv_text}.",
+        "int_uv": "Maximale UV-Intensität: ",
         "fase_lunar": "Mondphase: {lunar}.",
         "hora_puesta": "🌇 Sonnenuntergang",
         "hora_amanecer": "🌅 Sonnenaufgang",
@@ -355,6 +350,7 @@ TEXTOS = {
         "uv_extremo": "Extrem (SPF 50+ und Exposition vermeiden empfohlen)",
         "sea_temp": "🌊 Wassertemperatur des Meeres: {sea}°C.",
         "humedad": "💧 Relative Luftfeuchtigkeit: {hum}%.",
+        "uv_actual": "Aktueller UV-Index: {uv}",
         "info_envios": "Die Vorhersagen werden automatisch um 8:30 für den aktuellen Tag und um 20:30 für den nächsten Tag gesendet.",
         "rain_hours": "☔ Mögliche Regen um: {hours}.",
         "brief_title": "Kurze Vorhersage für die nächsten 3 Tage:",
@@ -374,13 +370,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Température actuelle :",
         "sensacion": " (ressenti {sens}°C).",
         "estado_actual": "☀️ Condition actuelle : {estado}",
-        "prediccion_hoy": "Prévision pour aujourd'hui",
-        "prediccion_manana": "Prévision pour demain",
+        "prediccion_hoy": "Prévision pour aujourd'hui:",
+        "prediccion_manana": "Prévision pour demain:",
         "temp_max": "🔼 Température maximale : {max_t}°C.",
         "temp_min": "🔽 Température minimale : {min_t}°C.",
         "prob_lluvia": "☔ Probabilité de pluie : {rain_prob}%.",
         "int_viento": "🌬️ Vent : {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Intensité UV maximale : {uv_text}.",
+        "int_uv": "Intensité UV maximale : ",
         "fase_lunar": "Phase lunaire : {lunar}.",
         "hora_puesta": "🌇 Coucher du soleil",
         "hora_amanecer": "🌅 Lever du soleil",
@@ -424,6 +420,7 @@ TEXTOS = {
         "uv_extremo": "Extrême (FPS 50+ et éviter l'exposition recommandé)",
         "sea_temp": "🌊 Température de l'eau de mer : {sea}°C.",
         "humedad": "💧 Humidité relative : {hum}%.",
+        "uv_actual": "Indice UV actuel : {uv}",
         "info_envios": "Les prévisions sont envoyées automatiquement à 8:30 pour le jour courant et à 20:30 pour le jour suivant.",
         "rain_hours": "☔ Pluie possible vers : {hours}.",
         "brief_title": "Prévision brève pour les 3 prochains jours :",
@@ -443,13 +440,13 @@ TEXTOS = {
         "temp_actual_title": "🌡️ Temperatura attuale:",
         "sensacion": " (percepita {sens}°C).",
         "estado_actual": "☀️ Condizione attuale: {estado}",
-        "prediccion_hoy": "Previsione per oggi",
-        "prediccion_manana": "Previsione per domani",
+        "prediccion_hoy": "Previsione per oggi:",
+        "prediccion_manana": "Previsione per domani:",
         "temp_max": "🔼 Temperatura massima: {max_t}°C.",
         "temp_min": "🔽 Temperatura minima: {min_t}°C.",
         "prob_lluvia": "☔ Probabilità di pioggia: {rain_prob}%.",
         "int_viento": "🌬️ Vento: {wind_kmh} km/h ({wind_desc}).",
-        "int_uv": "☀️ Intensità UV massima: {uv_text}.",
+        "int_uv": "Intensità UV massima: ",
         "fase_lunar": "Fase lunare: {lunar}.",
         "hora_puesta": "🌇 Tramonto",
         "hora_amanecer": "🌅 Alba",
@@ -493,6 +490,7 @@ TEXTOS = {
         "uv_extremo": "Estremo (SPF 50+ e evitare esposizione consigliato)",
         "sea_temp": "🌊 Temperatura dell'acqua del mare: {sea}°C.",
         "humedad": "💧 Umidità relativa: {hum}%.",
+        "uv_actual": "Indice UV attuale: {uv}",
         "info_envios": "Le previsioni vengono inviate automaticamente alle 8:30 per il giorno corrente e alle 20:30 per il giorno successivo.",
         "rain_hours": "☔ Pioggia possibile intorno alle: {hours}.",
         "brief_title": "Previsione breve per i prossimi 3 giorni:",
@@ -501,9 +499,8 @@ TEXTOS = {
         "actualizar_cmd": "Per conoscere il tempo attuale premi /actualizar",
     }
 }
-
 # ====================== FUNCIONES AUXILIARES ======================
-def get_lunar_phase(now: datetime, lang: str) -> str:
+def get_lunar_phase(now: datetime, lang: str) -> tuple[str, str]:
     t = TEXTOS[lang]
     y, m, d = now.year, now.month, now.day
     if m <= 2:
@@ -516,11 +513,11 @@ def get_lunar_phase(now: datetime, lang: str) -> str:
     f = int(30.6001 * (m + 1))
     jd = c + d + e + f - 1524.5
     moon_age = (jd - 2451549.5) % 29.53058867
-   
+  
     percent = round((moon_age / 29.53058867) * 100)
     if percent > 100:
         percent = 100
-   
+  
     # ── 8 fases lunares con emoji ──
     ma = moon_age
     if ma < 3.69:
@@ -547,9 +544,8 @@ def get_lunar_phase(now: datetime, lang: str) -> str:
     else:
         emoji = "🌘"
         phase = t["luna_creciente"]
-   
-    return f"{emoji} {phase} ({percent}%)"
-
+  
+    return emoji, f"{phase} ({percent}%)"
 def wind_description(kmh: int, lang: str) -> str:
     t = TEXTOS[lang]
     if kmh < 1: return t["wind_desc_calma"]
@@ -558,37 +554,35 @@ def wind_description(kmh: int, lang: str) -> str:
     if kmh < 29: return t["wind_desc_fuerte"]
     if kmh < 39: return t["wind_desc_muy_fuerte"]
     return t["wind_desc_tormenta"]
-
-def uv_explanation(uv: int, uv_max: int, lang: str) -> str:
+def uv_explanation(uv_val: int, lang: str) -> tuple[str, str]:
     t = TEXTOS[lang]
-    
-    if uv_max <= 2:
+   
+    if uv_val <= 2:
         desc = t["uv_bajo"]
-        color = "⚪"          # blanco
-    elif uv_max == 3:
+        color = "⚪" # blanco
+    elif uv_val == 3:
         desc = t["uv_moderado"]
-        color = "🔵"          # azul
-    elif uv_max <= 5:
+        color = "🔵" # azul
+    elif uv_val <= 5:
         desc = t["uv_moderado"]
-        color = "🟢"          # verde
-    elif uv_max == 6:
+        color = "🟢" # verde
+    elif uv_val == 6:
         desc = t["uv_alto"]
-        color = "🟡"          # amarillo
-    elif uv_max <= 8:
+        color = "🟡" # amarillo
+    elif uv_val <= 8:
         desc = t["uv_muy_alto"]
-        color = "🟠"          # naranja
-    elif uv_max <= 10:
+        color = "🟠" # naranja
+    elif uv_val <= 10:
         desc = t["uv_muy_alto"]
-        color = "🟤"          # marrón
-    elif uv_max == 11:
+        color = "🟤" # marrón
+    elif uv_val == 11:
         desc = t["uv_extremo"]
-        color = "🔴"          # rojo círculo
-    else:  # 12 o más
+        color = "🔴" # rojo círculo
+    else: # 12 o más
         desc = t["uv_extremo"]
-        color = "⚫"          # negro
-    
-    return f"{uv} / {uv_max} {color} {desc}"
-
+        color = "⚫" # negro
+   
+    return color, desc
 def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
     t = TEXTOS[lang]
     lines = []
@@ -604,7 +598,6 @@ def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, lo
     if loc_name in COASTAL_PUEBLOS: lines.append(t["desc_coast"])
     else: lines.append(t["desc_mountain"])
     return lines
-
 def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name: str, lang: str) -> list:
     t = TEXTOS[lang]
     cons = []
@@ -616,7 +609,6 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
     if loc_name in COASTAL_PUEBLOS: cons.append(t["consejo_coast"])
     else: cons.append(t["consejo_mountain"])
     return cons
-
 # ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
     now_ts = time_module.time()
@@ -647,7 +639,6 @@ async def get_real_weather(loc_name: str):
     except:
         weather_cache[loc_name] = {"data": None, "sea": None, "hum": 60, "ts": now_ts}
     return None, "fallback", None, 60
-
 # ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
@@ -658,7 +649,6 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         d = data["daily"]
         h = data["hourly"]
         idx = 0 if is_morning else 1
-
         temp = round(c["temperature_2m"])
         sens = round(c["apparent_temperature"])
         uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
@@ -675,7 +665,6 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-
         # Diccionario completo (corregido el SyntaxError del "...")
         d = {
             "temperature_2m_max": [23] * 7,
@@ -683,55 +672,50 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             "precipitation_probability_max": [25] * 7,
             "wind_speed_10m_max": [20] * 7,
         }
-
-    lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
-
     # ====================== UV CORREGIDO ======================
     if source == "openmeteo" and data:
-        uv_current = c.get("uv_index", 5)          # ← UV real actual
+        uv_current = c.get("uv_index", 5) # ← UV real actual
     else:
         uv_current = 5
-    uv_text = uv_explanation(uv_current, uv_max, lang)  # ← 3 argumentos correctos
+    color_current, _ = uv_explanation(uv_current, lang)
+    color_max, desc_max = uv_explanation(uv_max, lang)
     # =========================================================
-
+    lunar_emoji, lunar_text = get_lunar_phase(now, lang)
     desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
     consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
-
     lines = [
         loc_name, "",
         t["temp_actual_title"],
         f" {temp}°C" + t["sensacion"].format(sens=sens),
         t["humedad"].format(hum=humidity),
+        f"{color_current} " + t["uv_actual"].format(uv=uv_current),
         t["estado_actual"].format(estado=estado), "",
         t["prediccion_hoy"] if is_morning else t["prediccion_manana"], "",
         t["temp_max"].format(max_t=max_t),
         t["temp_min"].format(min_t=min_t),
         t["prob_lluvia"].format(rain_prob=rain_prob),
         t["int_viento"].format(wind_kmh=wind_kmh, wind_desc=wind_desc),
-        t["int_uv"].format(uv_text=uv_text),
+        "☀️ " + t["int_uv"] + f" {uv_max} {color_max}.",
+        f"☀️🕶️ {desc_max}",
         (t["hora_puesta"] if is_morning else t["hora_amanecer"]) + f": {sunset if is_morning else sunrise}.",
-        t["fase_lunar"].format(lunar=lunar),
+        f"{lunar_emoji} {t['fase_lunar'].format(lunar=lunar_text)}",
     ]
-
     if rain_prob > 20 and source == "openmeteo" and data:
         rain_times = []
         times = data["hourly"]["time"]
         probs = data["hourly"]["precipitation_probability"]
         for i in range(len(times)):
             if probs[i] > 20:
-                rain_times.append(times[i].split("T")[1][:5])
+                rain_times.append(times[i].split("T")[1][:2] + "h")
             if len(rain_times) >= 6: break
         if rain_times:
             lines.append(t["rain_hours"].format(hours=", ".join(rain_times)))
-
     if sea_temp is not None:
         lines.append(t["sea_temp"].format(sea=sea_temp))
-
     lines.extend([
-        "", "📅 " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
+        "", "🗓️ " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
     ])
-
     lines.append(t["brief_title"])
     brief_days_list = t["brief_days"]
     for k in range(3):
@@ -744,7 +728,6 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             rain_prob=round(d["precipitation_probability_max"][day_idx]),
             wind_kmh=round(d["wind_speed_10m_max"][day_idx])
         ))
-
     lines.extend([
         "",
         t["info_envios"],
@@ -753,7 +736,6 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         "",
         t["footer"]
     ])
-
     return "\n".join(lines)
 # ====================== ENVÍO ======================
 async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
@@ -763,7 +745,6 @@ async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     text = build_weather_message(data, source, u["location"], u["lang"], sea_temp, humidity)
     await context.bot.send_message(chat_id=u["chat_id"], text=text)
     logging.info(f"✅ Enviado | {u['location']} | fuente={source} | user={user_id}")
-
 # ====================== JOB AUTOMÁTICO ======================
 async def weather_job(context: ContextTypes.DEFAULT_TYPE):
     users_list = get_all_users()
@@ -775,7 +756,6 @@ async def weather_job(context: ContextTypes.DEFAULT_TYPE):
             sent += 1
         await asyncio.sleep(0.3)
     logging.info(f"✅ FINALIZADO: Enviados a {sent} usuarios")
-
 # ====================== CHECKER HORA ESPAÑA ======================
 async def spain_time_checker(context: ContextTypes.DEFAULT_TYPE):
     madrid = datetime.now(ZoneInfo("Europe/Madrid"))
@@ -785,7 +765,6 @@ async def spain_time_checker(context: ContextTypes.DEFAULT_TYPE):
     elif madrid.hour == 20 and madrid.minute == 30:
         logging.info("🕒 20:30 MADRID DETECTADO → Enviando pronóstico del día siguiente")
         await weather_job(context)
-
 # ====================== COMANDOS ======================
 async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -797,7 +776,6 @@ async def cmd_actualizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_last_request[user_id] = now
     update_user_data(user_id, chat_id=chat_id)
     await send_user_weather(context, user_id)
-
 async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     update_user_data(user_id, chat_id=update.effective_chat.id)
@@ -808,7 +786,6 @@ async def cmd_idioma(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🇫🇷 Français", callback_data="lang_FR"), InlineKeyboardButton("🇮🇹 Italiano", callback_data="lang_IT")],
     ]
     await update.message.reply_text("🌍 " + TEXTOS[lang]["idioma"], reply_markup=InlineKeyboardMarkup(kb))
-
 async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -818,7 +795,6 @@ async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = TEXTOS[new_lang]["bienvenido"].format(loc=get_user_data(user_id)["location"])
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
-
 async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     update_user_data(user_id, chat_id=update.effective_chat.id)
@@ -835,7 +811,6 @@ async def cmd_poblacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("SALOBREÑA 🏖️", callback_data="loc_SALOBREÑA")
     ])
     await update.message.reply_text(TEXTOS[lang]["cambiar"], reply_markup=InlineKeyboardMarkup(kb))
-
 async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -845,7 +820,6 @@ async def loc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = TEXTOS[get_user_data(user_id)["lang"]]["buscando"].format(loc=loc)
     await query.edit_message_text(text)
     await send_user_weather(context, user_id)
-
 # ====================== MAIN ======================
 async def post_init(application):
     try:
@@ -854,7 +828,6 @@ async def post_init(application):
         await asyncio.sleep(3)
     except Exception as e:
         logging.warning(f"Error al borrar webhook: {e}")
-
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     init_db()
@@ -865,15 +838,15 @@ def main():
     app.add_handler(CommandHandler(["actualizar", "update"], cmd_actualizar))
     app.add_handler(CallbackQueryHandler(lang_callback, pattern="^lang_"))
     app.add_handler(CallbackQueryHandler(loc_callback, pattern="^loc_"))
-    
+   
     jq = app.job_queue
-    
+   
     if MODO_PRUEBA:
         jq.run_repeating(weather_job, interval=300, first=5)
     else:
         # Checker diario (cada minuto chequea si son las 8:30 o 20:30 en España)
         jq.run_repeating(spain_time_checker, interval=60, first=10)
-        
+       
         # Excepcional HOY a las 8:40
         madrid_now = datetime.now(ZoneInfo("Europe/Madrid"))
         target = madrid_now.replace(hour=8, minute=40, second=0, microsecond=0)
@@ -882,11 +855,9 @@ def main():
             jq.run_once(weather_job, when=delay)
             logging.info(f"✅ JOB EXCEPCIONAL HOY a las 8:40 programado (en {int(delay)} segundos)")
         else:
-            logging.info("ℹ️  Job excepcional 8:40 ya pasó hoy")
-
+            logging.info("ℹ️ Job excepcional 8:40 ya pasó hoy")
     jq.run_repeating(lambda c: logging.info("Keep-alive ping"), interval=840)
     logging.info("✅ BOT INICIADO | Envíos diarios 8:30/20:30 + excepcional HOY 8:40")
     app.run_polling(drop_pending_updates=True)
-
 if __name__ == "__main__":
     main()
