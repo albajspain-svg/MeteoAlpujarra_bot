@@ -674,13 +674,16 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-        d = {"temperature_2m_max": [23]*5, 
-         "temperature_2m_min": [12]*5, 
-         "precipitation_probability_max": [25]*5, 
-         "wind_speed_10m_max": [20]*5}
+        uv_current = 5
+        uv_text = uv_explanation(uv_current, uv_max, lang)   # ← también corregido aquí
+        d = {"temperature_2m_max": [23]*5, ... }
     lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
-    uv_text = uv_explanation(uv_max, lang)
+    uv_text =         # ====================== UV CORREGIDO ======================
+        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
+        uv_current = c.get("uv_index", 5)                    # ← UV real actual
+        uv_text = uv_explanation(uv_current, uv_max, lang)   # ← 3 argumentos correctos
+        # =========================================================
     desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
     consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
     lines = [
