@@ -653,11 +653,12 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
     t = TEXTOS[lang]
     now = datetime.now()
     is_morning = now.hour < 14
-    if source == "openmeteo" and data:
+    if     if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
         h = data["hourly"]
         idx = 0 if is_morning else 1
+
         temp = round(c["temperature_2m"])
         sens = round(c["apparent_temperature"])
         uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
@@ -674,18 +675,29 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-        uv_current = 5
-        uv_text = uv_explanation(uv_current, uv_max, lang)   # ← también corregido aquí
-        d = {"temperature_2m_max": [23]*5, ... }
+
+        # Diccionario completo (corregido el SyntaxError del "...")
+        d = {
+            "temperature_2m_max": [23] * 7,
+            "temperature_2m_min": [12] * 7,
+            "precipitation_probability_max": [25] * 7,
+            "wind_speed_10m_max": [20] * 7,
+        }
+
     lunar = get_lunar_phase(now, lang)
     wind_desc = wind_description(wind_kmh, lang)
-    uv_text =         # ====================== UV CORREGIDO ======================
-        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
-        uv_current = c.get("uv_index", 5)                    # ← UV real actual
-        uv_text = uv_explanation(uv_current, uv_max, lang)   # ← 3 argumentos correctos
-        # =========================================================
+
+    # ====================== UV CORREGIDO ======================
+    if source == "openmeteo" and data:
+        uv_current = c.get("uv_index", 5)          # ← UV real actual
+    else:
+        uv_current = 5
+    uv_text = uv_explanation(uv_current, uv_max, lang)  # ← 3 argumentos correctos
+    # =========================================================
+
     desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
     consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
+
     lines = [
         loc_name, "",
         t["temp_actual_title"],
@@ -701,6 +713,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         (t["hora_puesta"] if is_morning else t["hora_amanecer"]) + f": {sunset if is_morning else sunrise}.",
         t["fase_lunar"].format(lunar=lunar),
     ]
+
     if rain_prob > 20 and source == "openmeteo" and data:
         rain_times = []
         times = data["hourly"]["time"]
@@ -711,11 +724,14 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             if len(rain_times) >= 6: break
         if rain_times:
             lines.append(t["rain_hours"].format(hours=", ".join(rain_times)))
+
     if sea_temp is not None:
         lines.append(t["sea_temp"].format(sea=sea_temp))
+
     lines.extend([
         "", "📅 " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
     ])
+
     lines.append(t["brief_title"])
     brief_days_list = t["brief_days"]
     for k in range(3):
@@ -728,6 +744,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             rain_prob=round(d["precipitation_probability_max"][day_idx]),
             wind_kmh=round(d["wind_speed_10m_max"][day_idx])
         ))
+
     lines.extend([
         "",
         t["info_envios"],
@@ -736,8 +753,8 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         "",
         t["footer"]
     ])
-    return "\n".join(lines)
 
+    return "\n".join(lines)
 # ====================== ENVÍO ======================
 async def send_user_weather(context: ContextTypes.DEFAULT_TYPE, user_id: int):
     u = get_user_data(user_id)
