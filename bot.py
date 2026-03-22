@@ -159,6 +159,8 @@ TEXTOS = {
         "brief_posible_lluvia": "Posible lluvia",
         "brief_format": "• {state} {day_label}: Máx {max_t}°C Mín {min_t}°C Lluvia {rain_prob}% Viento {wind_kmh} km/h",
         "brief_title": "Pronóstico breve próximos días:",
+        "month_names": [ "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" ],
+        "weekday_names": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" ],
     },
     "EN": {
         "idioma_cmd": "/language", "poblacion_cmd": "/location",
@@ -241,6 +243,8 @@ TEXTOS = {
         "brief_posible_lluvia": "Possible rain",
         "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Rain {rain_prob}% Wind {wind_kmh} km/h",
         "brief_title": "Brief forecast for the next days:",
+        "month_names": [ "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" ],
+        "weekday_names": [ "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" ],
     },
     "NL": {
         "idioma_cmd": "/taal", "poblacion_cmd": "/locatie",
@@ -323,6 +327,8 @@ TEXTOS = {
         "brief_posible_lluvia": "Mogelijke regen",
         "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
         "brief_title": "Korte voorspelling voor de komende dagen:",
+        "month_names": [ "januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december" ],
+        "weekday_names": [ "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag" ],
     },
     "DE": {
         "idioma_cmd": "/sprache", "poblacion_cmd": "/standort",
@@ -405,6 +411,8 @@ TEXTOS = {
         "brief_posible_lluvia": "Möglicher Regen",
         "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
         "brief_title": "Kurze Vorhersage für die nächsten Tage:",
+        "month_names": [ "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember" ],
+        "weekday_names": [ "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag" ],
     },
     "FR": {
         "idioma_cmd": "/langue", "poblacion_cmd": "/localisation",
@@ -486,7 +494,8 @@ TEXTOS = {
         "brief_frio": "Froid",
         "brief_posible_lluvia": "Pluie possible",
         "brief_format": "• {state} {day_label} : Max {max_t}°C Min {min_t}°C Pluie {rain_prob}% Vent {wind_kmh} km/h",
-        "brief_title": "Prévision brève pour les prochains jours :",
+        "brief_title": "Prévision brève pour les prochains jours :", "month_names": [ "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre" ],
+        "weekday_names": [ "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche" ],
     },
     "IT": {
         "idioma_cmd": "/lingua", "poblacion_cmd": "/posizione",
@@ -569,6 +578,8 @@ TEXTOS = {
         "brief_posible_lluvia": "Pioggia possibile",
         "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Pioggia {rain_prob}% Vento {wind_kmh} km/h",
         "brief_title": "Previsione breve per i prossimi giorni:",
+        "month_names": [ "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre" ],
+        "weekday_names": [ "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica" ],
     }
 }
 # ====================== FUNCIONES AUXILIARES ======================
