@@ -506,7 +506,7 @@ TEXTOS = {
 def get_lunar_phase(now: datetime, lang: str) -> str:
     t = TEXTOS[lang]
     y, m, d = now.year, now.month, now.day
-    if m <= 2: 
+    if m <= 2:
         y -= 1
         m += 12
     a = y // 100
@@ -516,19 +516,39 @@ def get_lunar_phase(now: datetime, lang: str) -> str:
     f = int(30.6001 * (m + 1))
     jd = c + d + e + f - 1524.5
     moon_age = (jd - 2451549.5) % 29.53058867
-    
+   
     percent = round((moon_age / 29.53058867) * 100)
     if percent > 100:
         percent = 100
-    
-    if moon_age < 2.5 or moon_age > 27.0:
+   
+    # ── 8 fases lunares con emoji ──
+    ma = moon_age
+    if ma < 3.69:
+        emoji = "🌑"
         phase = t["luna_nueva"]
-    elif 12.0 < moon_age < 17.0:
-        phase = t["luna_llena"]
-    else:
+    elif ma < 7.38:
+        emoji = "🌒"
         phase = t["luna_creciente"]
-    
-    return f"{phase} ({percent}%)"
+    elif ma < 11.07:
+        emoji = "🌓"
+        phase = t["luna_creciente"]
+    elif ma < 14.77:
+        emoji = "🌔"
+        phase = t["luna_creciente"]
+    elif ma < 18.44:
+        emoji = "🌕"
+        phase = t["luna_llena"]
+    elif ma < 22.13:
+        emoji = "🌖"
+        phase = t["luna_creciente"]
+    elif ma < 25.82:
+        emoji = "🌗"
+        phase = t["luna_creciente"]
+    else:
+        emoji = "🌘"
+        phase = t["luna_creciente"]
+   
+    return f"{emoji} {phase} ({percent}%)"
 
 def wind_description(kmh: int, lang: str) -> str:
     t = TEXTOS[lang]
@@ -539,13 +559,35 @@ def wind_description(kmh: int, lang: str) -> str:
     if kmh < 39: return t["wind_desc_muy_fuerte"]
     return t["wind_desc_tormenta"]
 
-def uv_explanation(uv: int, lang: str) -> str:
+def uv_explanation(uv: int, uv_max: int, lang: str) -> str:
     t = TEXTOS[lang]
-    if uv <= 2: return f"{uv} ⚪ {t['uv_bajo']}"
-    if uv <= 5: return f"{uv} 🟢 {t['uv_moderado']}"
-    if uv <= 7: return f"{uv} 🟡 {t['uv_alto']}"
-    if uv <= 10: return f"{uv} 🟠 {t['uv_muy_alto']}"
-    return f"{uv} 🔴 {t['uv_extremo']}"
+    
+    if uv_max <= 2:
+        desc = t["uv_bajo"]
+        color = "⚪"          # blanco
+    elif uv_max == 3:
+        desc = t["uv_moderado"]
+        color = "🔵"          # azul
+    elif uv_max <= 5:
+        desc = t["uv_moderado"]
+        color = "🟢"          # verde
+    elif uv_max == 6:
+        desc = t["uv_alto"]
+        color = "🟡"          # amarillo
+    elif uv_max <= 8:
+        desc = t["uv_muy_alto"]
+        color = "🟠"          # naranja
+    elif uv_max <= 10:
+        desc = t["uv_muy_alto"]
+        color = "🟤"          # marrón
+    elif uv_max == 11:
+        desc = t["uv_extremo"]
+        color = "🔴"          # rojo círculo
+    else:  # 12 o más
+        desc = t["uv_extremo"]
+        color = "⚫"          # negro
+    
+    return f"{uv} / {uv_max} {color} {desc}"
 
 def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, loc_name: str) -> list:
     t = TEXTOS[lang]
@@ -566,7 +608,7 @@ def get_day_description(rain_prob: int, wind_kmh: int, max_t: int, lang: str, lo
 def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name: str, lang: str) -> list:
     t = TEXTOS[lang]
     cons = []
-    if uv_max >= 6: cons.append(t["consejo_uv"])
+    if uv_max >= 6: cons.append("☀️🕶️ " + t["consejo_uv"])
     if rain_prob >= 40: cons.append(t["consejo_rain"])
     if wind_kmh >= 25 or temp < 14: cons.append(t["consejo_windcold"])
     if rain_prob < 20 and uv_max < 5 and temp > 18: cons.append(t["consejo_ligera"])
