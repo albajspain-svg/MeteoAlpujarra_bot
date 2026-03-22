@@ -653,7 +653,7 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
     t = TEXTOS[lang]
     now = datetime.now()
     is_morning = now.hour < 14
-    if     if source == "openmeteo" and data:
+    if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
         h = data["hourly"]
