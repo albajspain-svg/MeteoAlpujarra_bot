@@ -2,7 +2,7 @@ import logging
 import os
 import sqlite3
 import time as time_module
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -147,6 +147,18 @@ TEXTOS = {
         "brief_days": ["Mañana", "Pasado mañana", "En 3 días"],
         "brief_format": "• {day_label}: Máx {max_t}°C Mín {min_t}°C Lluvia {rain_prob}% Viento {wind_kmh} km/h",
         "actualizar_cmd": "Para ver el tiempo actual pulse /actualizar",
+        "prediccion_tarde_noche": "Predicción para esta tarde-noche",
+        "manana_label": "Mañana",
+        "pasado_manana_label": "Pasado mañana",
+        "date_str_template": "{day} de {month}",
+        "brief_soleado": "Soleado",
+        "brief_lluvioso": "Lluvioso",
+        "brief_nublado": "Nublado",
+        "brief_caluroso": "Caluroso",
+        "brief_frio": "Frío",
+        "brief_posible_lluvia": "Posible lluvia",
+        "brief_format": "• {state} {day_label}: Máx {max_t}°C Mín {min_t}°C Lluvia {rain_prob}% Viento {wind_kmh} km/h",
+        "brief_title": "Pronóstico breve próximos días:",
     },
     "EN": {
         "idioma_cmd": "/language", "poblacion_cmd": "/location",
@@ -217,6 +229,18 @@ TEXTOS = {
         "brief_days": ["Tomorrow", "Day after tomorrow", "In 3 days"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Rain {rain_prob}% Wind {wind_kmh} km/h",
         "actualizar_cmd": "To see the current weather press /actualizar",
+        "prediccion_tarde_noche": "Forecast for this afternoon-evening",
+        "manana_label": "Tomorrow",
+        "pasado_manana_label": "Day after tomorrow",
+        "date_str_template": "{month} {day}",
+        "brief_soleado": "Sunny",
+        "brief_lluvioso": "Rainy",
+        "brief_nublado": "Cloudy",
+        "brief_caluroso": "Hot",
+        "brief_frio": "Cold",
+        "brief_posible_lluvia": "Possible rain",
+        "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Rain {rain_prob}% Wind {wind_kmh} km/h",
+        "brief_title": "Brief forecast for the next days:",
     },
     "NL": {
         "idioma_cmd": "/taal", "poblacion_cmd": "/locatie",
@@ -287,6 +311,18 @@ TEXTOS = {
         "brief_days": ["Morgen", "Overmorgen", "Over 3 dagen"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
         "actualizar_cmd": "Om het huidige weer te zien druk op /actualizar",
+        "prediccion_tarde_noche": "Voorspelling voor deze namiddag-avond",
+        "manana_label": "Morgen",
+        "pasado_manana_label": "Overmorgen",
+        "date_str_template": "{day} {month}",
+        "brief_soleado": "Zonnig",
+        "brief_lluvioso": "Regenachtig",
+        "brief_nublado": "Bewolkt",
+        "brief_caluroso": "Heet",
+        "brief_frio": "Koud",
+        "brief_posible_lluvia": "Mogelijke regen",
+        "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
+        "brief_title": "Korte voorspelling voor de komende dagen:",
     },
     "DE": {
         "idioma_cmd": "/sprache", "poblacion_cmd": "/standort",
@@ -357,6 +393,18 @@ TEXTOS = {
         "brief_days": ["Morgen", "Übermorgen", "In 3 Tagen"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
         "actualizar_cmd": "Um das aktuelle Wetter zu sehen drücken Sie /actualizar",
+        "prediccion_tarde_noche": "Vorhersage für diesen Nachmittag-Abend",
+        "manana_label": "Morgen",
+        "pasado_manana_label": "Übermorgen",
+        "date_str_template": "{day}. {month}",
+        "brief_soleado": "Sonnig",
+        "brief_lluvioso": "Regnerisch",
+        "brief_nublado": "Bewölkt",
+        "brief_caluroso": "Heiß",
+        "brief_frio": "Kalt",
+        "brief_posible_lluvia": "Möglicher Regen",
+        "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Regen {rain_prob}% Wind {wind_kmh} km/h",
+        "brief_title": "Kurze Vorhersage für die nächsten Tage:",
     },
     "FR": {
         "idioma_cmd": "/langue", "poblacion_cmd": "/localisation",
@@ -427,6 +475,18 @@ TEXTOS = {
         "brief_days": ["Demain", "Après-demain", "Dans 3 jours"],
         "brief_format": "• {day_label} : Max {max_t}°C Min {min_t}°C Pluie {rain_prob}% Vent {wind_kmh} km/h",
         "actualizar_cmd": "Pour connaître le temps actuel appuyez sur /actualizar",
+        "prediccion_tarde_noche": "Prévision pour cet après-midi-soir",
+        "manana_label": "Demain",
+        "pasado_manana_label": "Après-demain",
+        "date_str_template": "{day} {month}",
+        "brief_soleado": "Ensoleillé",
+        "brief_lluvioso": "Pluvieux",
+        "brief_nublado": "Nuageux",
+        "brief_caluroso": "Chaud",
+        "brief_frio": "Froid",
+        "brief_posible_lluvia": "Pluie possible",
+        "brief_format": "• {state} {day_label} : Max {max_t}°C Min {min_t}°C Pluie {rain_prob}% Vent {wind_kmh} km/h",
+        "brief_title": "Prévision brève pour les prochains jours :",
     },
     "IT": {
         "idioma_cmd": "/lingua", "poblacion_cmd": "/posizione",
@@ -497,6 +557,18 @@ TEXTOS = {
         "brief_days": ["Domani", "Dopodomani", "Tra 3 giorni"],
         "brief_format": "• {day_label}: Max {max_t}°C Min {min_t}°C Pioggia {rain_prob}% Vento {wind_kmh} km/h",
         "actualizar_cmd": "Per conoscere il tempo attuale premi /actualizar",
+        "prediccion_tarde_noche": "Previsione per questo pomeriggio-sera",
+        "manana_label": "Domani",
+        "pasado_manana_label": "Dopodomani",
+        "date_str_template": "{day} {month}",
+        "brief_soleado": "Soleggiato",
+        "brief_lluvioso": "Piovoso",
+        "brief_nublado": "Nuvoloso",
+        "brief_caluroso": "Caldo",
+        "brief_frio": "Freddo",
+        "brief_posible_lluvia": "Pioggia possibile",
+        "brief_format": "• {state} {day_label}: Max {max_t}°C Min {min_t}°C Pioggia {rain_prob}% Vento {wind_kmh} km/h",
+        "brief_title": "Previsione breve per i prossimi giorni:",
     }
 }
 # ====================== FUNCIONES AUXILIARES ======================
@@ -609,6 +681,20 @@ def get_consejos(uv_max: int, rain_prob: int, wind_kmh: int, temp: int, loc_name
     if loc_name in COASTAL_PUEBLOS: cons.append(t["consejo_coast"])
     else: cons.append(t["consejo_mountain"])
     return cons
+def get_brief_state(rain_prob: int, max_t: int, lang: str) -> str:
+    t = TEXTOS[lang]
+    if rain_prob >= 60:
+        return t["brief_lluvioso"]
+    elif rain_prob >= 30:
+        return t["brief_posible_lluvia"]
+    elif max_t >= 30:
+        return t["brief_caluroso"]
+    elif max_t <= 10:
+        return t["brief_frio"]
+    elif rain_prob >= 10:
+        return t["brief_nublado"]
+    else:
+        return t["brief_soleado"]
 # ====================== OBTENER DATOS ======================
 async def get_real_weather(loc_name: str):
     now_ts = time_module.time()
@@ -642,48 +728,74 @@ async def get_real_weather(loc_name: str):
 # ====================== MENSAJE FINAL ======================
 def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None, humidity=60):
     t = TEXTOS[lang]
-    now = datetime.now()
-    is_morning = now.hour < 14
+    madrid_now = datetime.now(ZoneInfo("Europe/Madrid"))
+    current_date = madrid_now.date()
+    hour = madrid_now.hour
+    minute = madrid_now.minute
+
+    # === DETERMINAR TÍTULO DETALLADO Y DÍA ===
+    if (hour >= 20 and minute >= 30) or hour > 20 or hour < 6:
+        # Modo noche → predicción para MAÑANA
+        detailed_idx = 1
+        target_date = current_date + timedelta(days=1)
+        month_name = t["month_names"][target_date.month - 1]
+        date_str = t["date_str_template"].format(day=target_date.day, month=month_name)
+        detailed_title = t["prediccion_manana"] + f" ({date_str}):"
+    else:
+        detailed_idx = 0
+        if 6 <= hour < 17:
+            # 6:00-16:59 → "Predicción para hoy (22 de marzo):"
+            target_date = current_date
+            month_name = t["month_names"][target_date.month - 1]
+            date_str = t["date_str_template"].format(day=target_date.day, month=month_name)
+            detailed_title = t["prediccion_hoy"] + f" ({date_str}):"
+        else:
+            # 17:00-20:29 → "Predicción para esta tarde-noche 22/23 marzo"
+            today_d = current_date.day
+            tom_d = (current_date + timedelta(days=1)).day
+            month_str = t["month_names"][current_date.month - 1]
+            detailed_title = t["prediccion_tarde_noche"] + f" {today_d}/{tom_d} {month_str}"
+
+    # === OBTENER DATOS (igual que antes pero con detailed_idx) ===
     if source == "openmeteo" and data:
         c = data["current"]
         d = data["daily"]
         h = data["hourly"]
-        idx = 0 if is_morning else 1
         temp = round(c["temperature_2m"])
         sens = round(c["apparent_temperature"])
-        uv_max = max(h["uv_index"][idx*24:(idx+1)*24]) if "uv_index" in h else 5
-        rain_prob = d.get("precipitation_probability_max", [25]*4)[idx]
-        wind_kmh = round(d.get("wind_speed_10m_max", [20]*4)[idx])
-        max_t = round(d["temperature_2m_max"][idx])
-        min_t = round(d["temperature_2m_min"][idx])
-        sunrise = d["sunrise"][idx].split("T")[1][:5]
-        sunset = d["sunset"][idx].split("T")[1][:5]
+        uv_max = max(h.get("uv_index", [5]*48)[detailed_idx*24:(detailed_idx+1)*24]) if "uv_index" in h else 5
+        rain_prob = d.get("precipitation_probability_max", [25]*4)[detailed_idx]
+        wind_kmh = round(d.get("wind_speed_10m_max", [20]*4)[detailed_idx])
+        max_t = round(d["temperature_2m_max"][detailed_idx])
+        min_t = round(d["temperature_2m_min"][detailed_idx])
+        sunrise = d["sunrise"][detailed_idx].split("T")[1][:5]
+        sunset = d["sunset"][detailed_idx].split("T")[1][:5]
         estado = t["estado_despejado"] if rain_prob < 30 else t["estado_nublado"]
     else:
-        idx = 0 if is_morning else 1
+        # fallback
         temp, sens, uv_max, rain_prob, wind_kmh = 17, 16, 8, 25, 20
         max_t, min_t = 23, 12
         sunrise, sunset = "07:11", "19:49"
         estado = t["estado_fallback"]
-        # Diccionario completo (corregido el SyntaxError del "...")
         d = {
             "temperature_2m_max": [23] * 7,
             "temperature_2m_min": [12] * 7,
             "precipitation_probability_max": [25] * 7,
             "wind_speed_10m_max": [20] * 7,
         }
+
+    # === EL RESTO ES IGUAL (wind_desc, uv, lunar, consejos, etc.) ===
     wind_desc = wind_description(wind_kmh, lang)
-    # ====================== UV CORREGIDO ======================
     if source == "openmeteo" and data:
-        uv_current = c.get("uv_index", 5) # ← UV real actual
+        uv_current = c.get("uv_index", 5)
     else:
         uv_current = 5
     color_current, _ = uv_explanation(uv_current, lang)
     color_max, desc_max = uv_explanation(uv_max, lang)
-    # =========================================================
-    lunar_emoji, lunar_text = get_lunar_phase(now, lang)
+    lunar_emoji, lunar_text = get_lunar_phase(madrid_now, lang)
     desc_lines = get_day_description(rain_prob, wind_kmh, max_t, lang, loc_name)
     consejos = get_consejos(uv_max, rain_prob, wind_kmh, temp, loc_name, lang)
+
     lines = [
         loc_name, "",
         t["temp_actual_title"],
@@ -691,17 +803,19 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
         t["humedad"].format(hum=humidity),
         f"{color_current} " + t["uv_actual"].format(uv=uv_current),
         t["estado_actual"].format(estado=estado), "",
-        t["prediccion_hoy"] if is_morning else t["prediccion_manana"], "",
+        detailed_title, "",                     # ← AQUÍ VA EL NUEVO TÍTULO
         t["temp_max"].format(max_t=max_t),
         t["temp_min"].format(min_t=min_t),
         t["prob_lluvia"].format(rain_prob=rain_prob),
         t["int_viento"].format(wind_kmh=wind_kmh, wind_desc=wind_desc),
         "☀️ " + t["int_uv"] + f" {uv_max} {color_max}",
         f"{desc_max}",
-        (t["hora_puesta"] if is_morning else t["hora_amanecer"]) + f": {sunset if is_morning else sunrise}.",
+        (t["hora_puesta"] if detailed_idx == 0 else t["hora_amanecer"]) + f": {sunset if detailed_idx == 0 else sunrise}.",
         f"{lunar_emoji} {t['fase_lunar'].format(lunar=lunar_text)}",
     ]
+
     if rain_prob > 20 and source == "openmeteo" and data:
+        # (código de rain_hours igual que antes)
         rain_times = []
         times = data["hourly"]["time"]
         probs = data["hourly"]["precipitation_probability"]
@@ -711,23 +825,49 @@ def build_weather_message(data, source, loc_name: str, lang: str, sea_temp=None,
             if len(rain_times) >= 6: break
         if rain_times:
             lines.append(t["rain_hours"].format(hours=", ".join(rain_times)))
+
     if sea_temp is not None:
         lines.append(t["sea_temp"].format(sea=sea_temp))
+
     lines.extend([
         "", "🗓️ " + t["desc_day"], *desc_lines, "", "💡 " + t["consejos_title"], *consejos, "", t["separator"],
     ])
+
+    # === PRONÓSTICO BREVE NUEVO (con estado + fechas reales + 3 o 2 días según hora) ===
     lines.append(t["brief_title"])
-    brief_days_list = t["brief_days"]
-    for k in range(3):
-        day_idx = idx + 1 + k
+    brief_start = detailed_idx + 1
+    num_brief = 3 if detailed_idx == 0 else 2
+    for k in range(num_brief):
+        day_idx = brief_start + k
         if day_idx >= len(d["temperature_2m_max"]): break
+
+        max_t_b = round(d["temperature_2m_max"][day_idx])
+        min_t_b = round(d["temperature_2m_min"][day_idx])
+        rain_prob_b = round(d["precipitation_probability_max"][day_idx])
+        wind_kmh_b = round(d["wind_speed_10m_max"][day_idx])
+
+        days_ahead = day_idx
+        target_date = current_date + timedelta(days=days_ahead)
+        month_name_b = t["month_names"][target_date.month - 1]
+
+        if days_ahead == 1:
+            day_label = t["manana_label"] + " (" + t["date_str_template"].format(day=target_date.day, month=month_name_b) + ")"
+        elif days_ahead == 2:
+            day_label = t["pasado_manana_label"] + " (" + t["date_str_template"].format(day=target_date.day, month=month_name_b) + ")"
+        else:
+            weekday_name = t["weekday_names"][target_date.weekday()]
+            day_label = f"{weekday_name} " + t["date_str_template"].format(day=target_date.day, month=month_name_b)
+
+        state = get_brief_state(rain_prob_b, max_t_b, lang)
         lines.append(t["brief_format"].format(
-            day_label=brief_days_list[k],
-            max_t=round(d["temperature_2m_max"][day_idx]),
-            min_t=round(d["temperature_2m_min"][day_idx]),
-            rain_prob=round(d["precipitation_probability_max"][day_idx]),
-            wind_kmh=round(d["wind_speed_10m_max"][day_idx])
+            state=state,
+            day_label=day_label,
+            max_t=max_t_b,
+            min_t=min_t_b,
+            rain_prob=rain_prob_b,
+            wind_kmh=wind_kmh_b
         ))
+
     lines.extend([
         "",
         t["info_envios"],
